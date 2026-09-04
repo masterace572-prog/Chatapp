@@ -64,12 +64,19 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pulse.messenger.R
+import com.pulse.messenger.media.VoicePlaybackController
+import com.pulse.messenger.media.VoicePlaybackUi
+import com.pulse.messenger.media.voicePlaybackController
 import com.pulse.messenger.domain.model.Chat
 import com.pulse.messenger.domain.model.Message
 import com.pulse.messenger.domain.model.MessageContent
@@ -299,7 +306,40 @@ internal fun ConversationContent(
     var listTopPx by remember { mutableStateOf(0f) }
     var actionAnchorPx by remember { mutableStateOf<Float?>(null) }
 
-    var voicePlayingId by remember { mutableStateOf<String?>(null) }
+    // ---- M4c real voice playback: mirror of the app-wide controller. ----
+    // Previews run in inspection mode (no Hilt graph), so they keep the
+    // simulated bubble; the real app always obtains the singleton.
+    val inInspection = LocalInspectionMode.current
+    val voiceController: VoicePlaybackController? = remember(inInspection) {
+        if (inInspection) {
+            null
+        } else {
+            runCatching { voicePlaybackController(context) }.getOrNull()
+        }
+    }
+    var voiceUi by remember { mutableStateOf(VoicePlaybackUi()) }
+    LaunchedEffect(voiceController) {
+        voiceController?.state?.collect { voiceUi = it }
+    }
+    // Stop audio when this chat leaves the screen.
+    DisposableEffect(voiceController) {
+        onDispose { voiceController?.stop() }
+    }
+    // Stop audio when the app goes to the background.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, voiceController) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) voiceController?.stop()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    fun toggleVoice(id: String) {
+        val seconds = (rowMessageOf(state, id)?.content as? MessageContent.Voice)
+            ?.durationSeconds ?: return
+        voiceController?.toggle(id, seconds)
+    }
     val density = LocalDensity.current
 
     // ---- M4c attachment flows (S24-S26): ephemeral UI state. ----
@@ -747,10 +787,12 @@ internal fun ConversationContent(
                     isGroup = isGroup,
                     listState = listState,
                     freeze = overlayMessage != null,
-                    voicePlayingId = voicePlayingId,
-                    onVoiceToggle = { id ->
-                        voicePlayingId = if (voicePlayingId == id) null else id
+                    voiceUi = voiceUi,
+                    onVoiceToggle = { id -> toggleVoice(id) },
+                    onVoiceSeek = { _: String, fraction: Float ->
+                        voiceController?.seekToFraction(fraction)
                     },
+                    onVoiceSpeedCycle = { voiceController?.cycleSpeed() },
                     callbacks = callbacks,
                     onVm = onVm,
                     onLongPress = { id -> onVm?.openActions?.invoke(id) },
@@ -879,11 +921,17 @@ internal fun ConversationContent(
                                 } else {
                                     null
                                 },
-                                voicePlaying = voicePlayingId == rowMessage.id,
-                                onVoiceToggle = {
-                                    voicePlayingId = if (voicePlayingId == rowMessage.id) null
-                                    else rowMessage.id
-                                },
+                                voicePlaying = voiceUi.activeMessageId == rowMessage.id &&
+                                    voiceUi.isPlaying,
+                                onVoiceToggle = { toggleVoice(rowMessage.id) },
+                                voiceControllerDriven = true,
+                                voicePlaySession =
+                                    if (voiceUi.activeMessageId == rowMessage.id) voiceUi.session else 0,
+                                voiceDurationMs =
+                                    if (voiceUi.activeMessageId == rowMessage.id) voiceUi.durationMs else 0,
+                                voiceSpeedIndex = voiceUi.speedIndex,
+                                onVoiceSeek = { f -> voiceController?.seekToFraction(f) },
+                                onVoiceSpeedCycle = { voiceController?.cycleSpeed() },
                                 onPollVote = { indexes -> onVm?.votePoll?.invoke(rowMessage.id, indexes) },
                                 onPollRetract = { onVm?.retractVote?.invoke(rowMessage.id) },
                                 onFileTap = { openMessageFile(rowMessage.id) },
@@ -1228,6 +1276,12 @@ private fun MessageBubbleReplica(
     onPollVote: ((List<Int>) -> Unit)? = null,
     onPollRetract: (() -> Unit)? = null,
     onFileTap: (() -> Unit)? = null,
+    voiceControllerDriven: Boolean = false,
+    voicePlaySession: Int = 0,
+    voiceDurationMs: Int = 0,
+    voiceSpeedIndex: Int = 0,
+    onVoiceSeek: ((Float) -> Unit)? = null,
+    onVoiceSpeedCycle: (() -> Unit)? = null,
 ) {
     val lift = remember { androidx.compose.animation.core.Animatable(1f) }
     LaunchedEffect(Unit) {
@@ -1252,6 +1306,12 @@ private fun MessageBubbleReplica(
         onPollVote = onPollVote,
         onPollRetract = onPollRetract,
         onFileTap = onFileTap,
+        voiceControllerDriven = voiceControllerDriven,
+        voicePlaySession = voicePlaySession,
+        voiceDurationMs = voiceDurationMs,
+        voiceSpeedIndex = voiceSpeedIndex,
+        onVoiceSeek = onVoiceSeek,
+        onVoiceSpeedCycle = onVoiceSpeedCycle,
     )
 }
 
@@ -1429,8 +1489,10 @@ private fun ConversationList(
     isGroup: Boolean,
     listState: androidx.compose.foundation.lazy.LazyListState,
     freeze: Boolean,
-    voicePlayingId: String?,
-    onVoiceToggle: (String) -> Unit,
+    voiceUi: VoicePlaybackUi = VoicePlaybackUi(),
+    onVoiceToggle: (String) -> Unit = {},
+    onVoiceSeek: (String, Float) -> Unit = { _: String, _: Float -> },
+    onVoiceSpeedCycle: (String) -> Unit = {},
     callbacks: ConversationCallbacks,
     onVm: VmBridge?,
     onLongPress: (String) -> Unit,
@@ -1583,9 +1645,24 @@ private fun ConversationList(
                                         onReactionLongPress = { emoji ->
                                             onReactionLongPress(message.id, emoji)
                                         },
-                                        voicePlaying = voicePlayingId == message.id &&
+                                        voicePlaying = voiceUi.activeMessageId == message.id &&
+                                            voiceUi.isPlaying &&
                                             message.content is MessageContent.Voice,
                                         onVoiceToggle = { onVoiceToggle(message.id) },
+                                        voiceControllerDriven = true,
+                                        voicePlaySession = if (voiceUi.activeMessageId == message.id) {
+                                            voiceUi.session
+                                        } else {
+                                            0
+                                        },
+                                        voiceDurationMs = if (voiceUi.activeMessageId == message.id) {
+                                            voiceUi.durationMs
+                                        } else {
+                                            0
+                                        },
+                                        voiceSpeedIndex = voiceUi.speedIndex,
+                                        onVoiceSeek = { f -> onVoiceSeek(message.id, f) },
+                                        onVoiceSpeedCycle = { onVoiceSpeedCycle(message.id) },
                                         onRetry = if (message.isOutgoing &&
                                             message.status == MessageStatus.Failed
                                         ) {

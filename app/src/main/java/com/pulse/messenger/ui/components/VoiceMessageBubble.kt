@@ -2,6 +2,7 @@ package com.pulse.messenger.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,13 +47,18 @@ import kotlinx.coroutines.delay
 import kotlin.math.abs
 
 /**
- * Voice-note bubble content (S23 voice note; simulated playback until M4c).
+ * Voice-note bubble content (S23 voice note).
  *
- * Real audio is out of M4b scope: pressing play advances a timer through the
- * duration and tints the played portion of the waveform. The static bars are
- * generated from the seeded waveform samples ([MessageContent.Voice]) or, when
- * a message carries none, from a deterministic hash of the message id, so
- * previews and seeds always render a full waveform.
+ * Without a controller (previews) playback is simulated: pressing play
+ * advances a timer through the duration and tints the played portion of the
+ * waveform. In the conversation the row mirrors the app-wide
+ * [com.pulse.messenger.media.VoicePlaybackController] state: [controllerDriven]
+ * rows show the real clip duration once prepared, reset their head on fresh
+ * play sessions, seek on waveform taps and cycle the real 1x/1.5x/2x speed.
+ * The static bars are generated from the seeded waveform samples
+ * ([MessageContent.Voice]) or, when a message carries none, from a
+ * deterministic hash of the message id, so previews and seeds always render a
+ * full waveform.
  */
 @Composable
 fun VoiceNoteContent(
@@ -62,34 +69,58 @@ fun VoiceNoteContent(
     onPlayPause: () -> Unit,
     modifier: Modifier = Modifier,
     seedKey: String = "voice",
+    // M4c real-playback mirror (conversation rows only; previews stay simulated).
+    controllerDriven: Boolean = false,
+    playSession: Int = 0,
+    voiceDurationMs: Int = 0,
+    voiceSpeedIndex: Int = 0,
+    onSeekFraction: ((Float) -> Unit)? = null,
+    onSpeedCycle: (() -> Unit)? = null,
 ) {
     val c = PulseTheme.colors
-    // Playback head (seconds, fractional). Owned by the bubble so progress
-    // survives brief recompositions; reset when a NEW message starts playing.
-    var progressMs by remember { mutableFloatStateOf(0f) }
-    var speed by remember { mutableIntStateOf(0) }
+    // Total length shown by the visuals: the real clip length once the player
+    // reports it, otherwise the seeded metadata (previews / clip preparing).
+    val totalMs = if (controllerDriven && voiceDurationMs > 0) voiceDurationMs.toFloat()
+    else durationSeconds * 1000f
+    // Playback head (ms), owned by the bubble so progress survives brief
+    // recompositions. remember(playSession): a fresh controller session (new
+    // play after stop/completion) resets the head exactly when audio restarts.
+    var progressMs by remember(playSession) { mutableFloatStateOf(0f) }
+    // Fallback speed index for simulated hosts (chip cycles locally).
+    var fallbackSpeed by remember { mutableIntStateOf(0) }
     val speeds = listOf(1f, 1.5f, 2f)
+    val speedIndex = if (controllerDriven) voiceSpeedIndex else fallbackSpeed
     val samples = remember(waveformSamples, seedKey) {
         if (waveformSamples.isNotEmpty()) waveformSamples else deterministicWave(seedKey)
     }
     val maxSample = remember(samples) { samples.maxOrNull()?.coerceAtLeast(1) ?: 1 }
 
-    LaunchedEffect(isPlaying) {
+    LaunchedEffect(isPlaying, playSession) {
         if (isPlaying) {
-            if (progressMs >= durationSeconds * 1000f) progressMs = 0f
+            if (progressMs >= totalMs) progressMs = 0f
             val stepMs = 50L
-            val rateMs = (stepMs / speeds[speed]).toLong().coerceAtLeast(16L)
-            while (isPlaying && progressMs < durationSeconds * 1000f) {
+            val rateMs = (stepMs / speeds[speedIndex]).toLong().coerceAtLeast(16L)
+            while (isPlaying && progressMs < totalMs) {
                 delay(rateMs)
-                progressMs = (progressMs + stepMs).coerceAtMost(durationSeconds * 1000f)
+                progressMs = (progressMs + stepMs).coerceAtMost(totalMs)
             }
-            if (progressMs >= durationSeconds * 1000f) onPlayPause() // auto-stop
+            // Simulated hosts auto-stop at the visual end; real playback is
+            // stopped by the controller's completion instead.
+            if (!controllerDriven && progressMs >= totalMs) onPlayPause()
         }
     }
 
     val contentColor = if (isOutgoing) c.onAccent else c.textPrimary
     val metaColor = if (isOutgoing) c.onAccent.copy(alpha = 0.8f) else c.textSecondary
-    val remaining = ((durationSeconds * 1000 - progressMs.toInt()) / 1000f).toInt().coerceAtLeast(0)
+    val remaining = ((totalMs - progressMs) / 1000f).toInt().coerceAtLeast(0)
+
+    // Waveform tap -> audio seek + jump the local head (controller rows only).
+    val seekTo: ((Float) -> Unit)? = onSeekFraction?.let { external ->
+        { fraction ->
+            external(fraction)
+            progressMs = totalMs * fraction.coerceIn(0f, 1f)
+        }
+    }
 
     Row(
         modifier = modifier,
@@ -119,9 +150,10 @@ fun VoiceNoteContent(
         VoiceWaveform(
             samples = samples,
             maxSample = maxSample,
-            playedFraction = (progressMs / 1000f / durationSeconds).coerceIn(0f, 1f),
+            playedFraction = if (totalMs > 0f) (progressMs / totalMs).coerceIn(0f, 1f) else 0f,
             baseColor = if (isOutgoing) c.onAccent.copy(alpha = 0.55f) else c.textTertiary,
             playedColor = if (isOutgoing) c.onAccent else c.accent,
+            onSeekFraction = seekTo,
             modifier = Modifier
                 .weight(1f)
                 .height(34.dp),
@@ -138,8 +170,14 @@ fun VoiceNoteContent(
             )
             Spacer(Modifier.height(PulseSpacing.tight))
             SpeedChip(
-                label = speedLabel(speed),
-                onClick = { speed = (speed + 1) % speeds.size },
+                label = speedLabel(speedIndex),
+                onClick = {
+                    if (controllerDriven) {
+                        onSpeedCycle?.invoke()
+                    } else {
+                        fallbackSpeed = (fallbackSpeed + 1) % speeds.size
+                    }
+                },
                 contentColor = if (isOutgoing) c.onAccent.copy(alpha = 0.9f) else c.textSecondary,
                 borderColor = if (isOutgoing) c.onAccent.copy(alpha = 0.45f) else c.border,
             )
@@ -182,8 +220,19 @@ fun VoiceWaveform(
     maxSample: Int = 100,
     baseColor: Color = PulseTheme.colors.textTertiary,
     playedColor: Color = PulseTheme.colors.accent,
+    /** M4c: tap the wave to seek; fraction 0..1 across the whole wave. */
+    onSeekFraction: ((Float) -> Unit)? = null,
 ) {
-    Canvas(modifier = modifier) {
+    val tapModifier = if (onSeekFraction != null) {
+        modifier.pointerInput(onSeekFraction) {
+            detectTapGestures { offset ->
+                onSeekFraction((offset.x / size.width).coerceIn(0f, 1f))
+            }
+        }
+    } else {
+        modifier
+    }
+    Canvas(modifier = tapModifier) {
         if (samples.isEmpty()) return@Canvas
         val n = samples.size
         val gapPx = 2.dp.toPx()

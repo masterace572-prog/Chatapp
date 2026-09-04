@@ -109,6 +109,14 @@ fun MessageBubble(
     onReactionLongPress: (String) -> Unit = {},
     voicePlaying: Boolean = false,
     onVoiceToggle: () -> Unit = {},
+    // M4c real-playback mirror (see VoicePlaybackController); defaults keep
+    // previews and standalone hosts on the simulated bubble behaviour.
+    voiceControllerDriven: Boolean = false,
+    voicePlaySession: Int = 0,
+    voiceDurationMs: Int = 0,
+    voiceSpeedIndex: Int = 0,
+    onVoiceSeek: ((Float) -> Unit)? = null,
+    onVoiceSpeedCycle: (() -> Unit)? = null,
     onImageTap: ((Int) -> Unit)? = null,
     onVideoTap: (() -> Unit)? = null,
     onFileTap: (() -> Unit)? = null,
@@ -216,6 +224,12 @@ fun MessageBubble(
                                 voicePlaying = voicePlaying,
                                 onVoiceToggle = onVoiceToggle,
                                 onFileTap = onFileTap,
+                                voiceControllerDriven = voiceControllerDriven,
+                                voicePlaySession = voicePlaySession,
+                                voiceDurationMs = voiceDurationMs,
+                                voiceSpeedIndex = voiceSpeedIndex,
+                                onVoiceSeek = onVoiceSeek,
+                                onVoiceSpeedCycle = onVoiceSpeedCycle,
                             )
                             BubbleMetaRow(message = message, isOutgoing = isOutgoing)
                         }
@@ -330,6 +344,12 @@ private fun BubbleContent(
     voicePlaying: Boolean,
     onVoiceToggle: () -> Unit,
     onFileTap: (() -> Unit)?,
+    voiceControllerDriven: Boolean = false,
+    voicePlaySession: Int = 0,
+    voiceDurationMs: Int = 0,
+    voiceSpeedIndex: Int = 0,
+    onVoiceSeek: ((Float) -> Unit)? = null,
+    onVoiceSpeedCycle: (() -> Unit)? = null,
 ) {
     Column {
         // Forwarded label above the content (hidden for deleted/system).
@@ -363,6 +383,12 @@ private fun BubbleContent(
                     isPlaying = voicePlaying,
                     onPlayPause = onVoiceToggle,
                     seedKey = message.id,
+                    controllerDriven = voiceControllerDriven,
+                    playSession = voicePlaySession,
+                    voiceDurationMs = voiceDurationMs,
+                    voiceSpeedIndex = voiceSpeedIndex,
+                    onSeekFraction = onVoiceSeek,
+                    onSpeedCycle = onVoiceSpeedCycle,
                 )
             }
 
