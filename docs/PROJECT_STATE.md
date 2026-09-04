@@ -2,7 +2,7 @@
 
 _Companion to `docs/PRD.md`. Kept current at every milestone hand-off; update this file when you change architecture, tokens, routes, or persistence._
 
-Last updated: 2026-09-04 (M4a). Head: `e8abc9c` + M4a commits.
+Last updated: 2026-09-04 (M4c complete). Head: `90e4a8a` (M4b head + M4c commits).
 
 ---
 
@@ -19,7 +19,7 @@ com.pulse.messenger/
 │   ├── theme/               # DESIGN TOKENS (see §2) - Color, Spacing, Shape, Type, Theme
 │   ├── icons/AppIcons.kt    # the ONLY icon source: Lucide-derived ImageVectors
 │   ├── components/          # design-system components + previews (see §3)
-│   ├── util/                # MessagePresentation: TimeFormat, MessageLabels, ConversationFormat
+│   ├── util/                # MessagePresentation: TimeFormat, MessageLabels, ConversationFormat, SampleMedia (asset keys), CacheFiles (raw->FileProvider export)
 │   ├── navigation/          # Routes.kt (route consts) + PulseApp.kt (NavHost, auth router)
 │   └── screens/             # one feature package per screen family
 │       ├── splash/ auth/ welcome/ login/ signup/ otp/ forgot/ profile/
@@ -40,7 +40,9 @@ com.pulse.messenger/
 │   ├── mock/                # MockAuth/Chat/Contacts/UserRepository, SeedData, Simulator
 │   ├── local/               # Folders/SearchHistory/SettingsRepositoryImpl (DataStore+org.json)
 │   └── remote/              # reserved for Phase 2 Supabase (empty by design)
-└── di/                      # RepositoryModule (@Binds), Qualifiers (@ApplicationScope), CoroutineModule
+├── media/                   # VoicePlaybackController.kt (M4c): Hilt-singleton MediaPlayer
+│                           # over raw voice assets + @EntryPoint accessor for Compose
+├── di/                      # RepositoryModule (@Binds), Qualifiers (@ApplicationScope), CoroutineModule
 ```
 
 ### Rules that hold
@@ -101,13 +103,18 @@ width 78% of the row (code-level constraint), structural metrics like country-fl
 | `Avatar` (+ group composite) (Avatar.kt) | Initials/photo circle 24–120dp, online dot, group stack | name, avatarTone, size, isOnline, isGroup |
 | `ChatListItem` + `SelectionCheck`, `DeliveryTicks` (ChatListItem.kt) | S19/S21 row incl. all badges/ticks; ticks now cover Sending(clock)/Failed(alert) | summary, onClick, onLongClick, selectionMode, selected |
 | `SwipeableRow` (SwipeableRow.kt) | Swipe actions container (snap-back) | startAction, endAction, enabled, content |
-| `MessageBubble` (MessageBubble.kt) | S23 bubble (M4a core + M4b interactions): text + tappable links, reply-quote bar (tap scrolls to target), forwarded label, edited/star/status meta, deleted placeholder, failed+retry, run geometry, group names + run avatar, flash highlight after pin/quote jumps, reaction pill row under the bubble | message, run flags, senderName/Color, avatarSeed, onRetry, quote(BubbleQuoteData?)+onQuoteTap, flashSignal, onLongPress/onTap, onToggleReaction/onReactionLongPress, voicePlaying/onVoiceToggle |
-| `VoiceMessageBubble` (VoiceMessageBubble.kt) | Voice-note bubble content: play/pause + simulated playback (timer + progress-tinted waveform bars), duration + 1×/1.5×/2× speed chip | `VoiceNoteContent`(isOutgoing, duration, samples, playing, onToggle); `VoiceMessageBubble`(message…) |
+| `MessageBubble` (MessageBubble.kt) | S23 bubble (M4a core + M4b interactions + M4c media/voice): text + tappable links, reply-quote bar (tap scrolls to target), forwarded label, edited/star/status meta, deleted placeholder, failed+retry, run geometry, group names + run avatar, flash highlight after pin/quote jumps, reaction pill row; routes every rich payload to `RichUnsurfacedBubble` (image/video/sticker/location/poll) or the bubble body (text/voice/file/contact); M4c mirror of `VoicePlaybackController` (real duration/speed, seek callbacks) with defaults = simulated | message, run flags, senderName/Color, avatarSeed, onRetry, quote+onQuoteTap, flashSignal, onLongPress/onTap, onToggleReaction/onReactionLongPress, voicePlaying/onVoiceToggle (+ voiceControllerDriven/voicePlaySession/voiceDurationMs/voiceSpeedIndex/onVoiceSeek/onVoiceSpeedCycle), onImageTap/onVideoTap/onFileTap, onPollVote/onPollRetract | message, run flags, senderName/Color, avatarSeed, onRetry, quote(BubbleQuoteData?)+onQuoteTap, flashSignal, onLongPress/onTap, onToggleReaction/onReactionLongPress, voicePlaying/onVoiceToggle |
+| `VoiceMessageBubble` (VoiceMessageBubble.kt) | Voice-note bubble content: play/pause, progress-tinted waveform bars, duration countdown + 1×/1.5×/2× speed chip; simulated timer by default, or mirrors the real controller (waveform tap = seek, chip = PlaybackParams rate) when controllerDriven | `VoiceNoteContent`(isOutgoing, duration, samples, playing, onToggle, controllerDriven, playSession, voiceDurationMs, voiceSpeedIndex, onSeekFraction, onSpeedCycle); `VoiceMessageBubble`(message…); `VoiceWaveform`(…, onSeekFraction) | `VoiceNoteContent`(isOutgoing, duration, samples, playing, onToggle); `VoiceMessageBubble`(message…) |
 | `MessageActions` (MessageActions.kt) | Long-press surfaces: `LongPressScrim`, `QuickReactionBar` (6 quick emoji + "+"), `MessageActionSheet` (icon rows), `EmojiSheetContent` (24-emoji grid) | onReact/onMore; items: List<MessageActionItem(icon,labelRes,destructive)>; onEmoji |
 | `MessageReactions` (MessageReactions.kt) | Reaction pills (`ReactionPillRow`, own-reaction accent border/bg) + `ReactorsSheetContent` (avatar+name list); `ReactionEmoji` sets; `reactionPills(message)` builder | pills, isOutgoing, onToggle, onLongPress; emoji, reactors: List<ReactorUi> |
 | `ConversationBars` (ConversationBars.kt) | `PinnedBanner` (segment indicator, close-to-unpin, tap cycles/jumps) + `MultiSelectTopBar` (N selected + copy/star/forward/delete) | items+PinnedBannerData, displayIndex, onTap/onClose; count, canCopy, batch callbacks |
 | `DateSeparator`, `UnreadDivider`, `SystemMessageRow`, `TypingIndicator` (ChatExtras.kt) | Conversation list chrome (day pill / "N unread" pill / centered system row / 3-dot pulse bubble) | label; senderName for typing |
 | `ForwardSheet` (ForwardSheet.kt) | Forward chooser: forwarded-message preview bar (+N), comment field, search + Recent avatar row, selected-target chips, ChatListItem list, Send (N) pill | chats: List<ChatSummary>, messages, onSend(targetIds, comment) |
+| `ConversationMedia` (ConversationMedia.kt) | M4c attach/pick/camera cluster: `AttachmentTile` enum (Camera/Photos/Document/Location/Poll/Contact/Audio), `AttachmentTray` (+ in-session recent strip), `MediaSendSheet` (caption editor over picked/drafted media), `CameraSimOverlay` (shutter + hold-to-record over bundled stills/samples), file/media bodies, `RecentMediaItem`/`ViewerMediaItem` builders | tile sets, recent, onTile, onSend… |
+| `MediaViewer` (MediaViewer.kt) | M4c fullscreen viewer: horizontal pager over the chat's media, tap chrome (close/sender/date + share/forward/delete/info), pinch-zoom + double-tap, sample-video playback, caption overlay | items: List<ViewerMediaItem>, initialIndex, onClose/onForward/onDelete/onInfo |
+| `PollComposer` (PollComposer.kt) | M4c create-poll sheet: question, options list w/ add/remove, multi-select/anonymous/quiz toggles (correct-answer picker) | onSend(question, options, multipleAnswers, isAnonymous, isQuiz, correctOptionIndex) |
+| `LocationPicker` (LocationPicker.kt) | M4c location sheet: mock current position + searchable places, live-location duration row, static/live split | onSend(lat, lng, address, isLive, liveDurationSeconds) |
+| `ContactShareSheet` (ContactShareSheet.kt) | M4c contact share: directory search + selected chips, contact card preview, send | directory users, onSend(User) |
 | `MessageComposer` (MessageComposer.kt) | M4b full composer: `ComposerUiState` Idle/Typing/Reply/Edit/Recording/LockedRecording/Blocked/ReadOnly; reply & edit bars (3dp accent, close), growing 6-line field, hold-to-record with slide-to-cancel + lock (haptics, too-short guard), locked row (pause/resume, trash, send), group @mention popup + accent chip coloring, blocked (Unblock) / read-only status rows | state, value, onValueChange, mentionMembers, onSend/onAttachment/onCamera/onMicPress, onRecordCancel/Lock/Finish(ms,samples)/TooShort, onCloseBar, onMentionSelected, onUnblock |
 | `AppChip`, `Badge`, `Tag` (Badges.kt) | Filter chip w/ leading icon; count pill; neutral micro-label | label, selected; count, muted |
 | `SearchBar` (SearchBar.kt) | Collapsed pill → expanded field with back | value, active, onActiveChange, placeholder |
@@ -230,8 +237,11 @@ Flow<Set<String>>`, `sendText(chatId, text, replyToMessageId?)`, `retryMessage(m
   seed): grouped sender runs (2 min window), system rows, links, **M4b interaction seeds** —
   reply-to-text and reply-to-non-text chains, starred messages, voice notes with waveform
   samples + reactions, multi-user reaction sets (`u-aria`/`u-sam`/…) — plus edited/deleted
-  examples and content-type placeholders (image/video/file/location/contact/poll/sticker).
-  Unread tails are peer-sent by construction; archived chats end days ago.
+  examples and **M4c rich slots**: real content-type payloads (images incl. a 4-photo grid,
+  sample videos, voice notes at the 7/15/28 s clip lengths, files incl. the openable
+  `sample_route.gpx`, static + live locations, contact cards from the directory, polls with
+  voter maps, stickers, system rows) instead of placeholders. Unread tails are peer-sent by
+  construction; archived chats end days ago.
 - **Pins (M4b):** every group chat carries ≥1 pinned message; `c-aria` carries two so the
   pinned banner cycles. **Read-only demo:** Morning Runners (`c-run`) sets
   `permissions.sendMessages = false` with "me" as Member → the composer renders its read-only
@@ -260,16 +270,22 @@ Flow<Set<String>>`, `sendText(chatId, text, replyToMessageId?)`, `retryMessage(m
 | M3 | Main shell & chats S18–S22 | ✅ | |
 | Pre-M4 audit | Consolidation + docs + readiness | ✅ | commits `895241f`, `e8abc9c` |
 | **M4a** | **Conversation core: domain model v2, message repo + mock behaviors + seed history, S23 chat screen (header/list/bubbles/composer basic)** | ✅ | |
-| **M4b** | **Conversation messaging: full composer states (reply/edit/voice/blocked/read-only, mentions), long-press action sheet + quick reactions + reactors sheet, reaction rows, multi-select batch actions, reply send + quote bars, forward sheet with comment, delete-for-me/everyone, voice notes (send + simulated playback), pinned banner with cycling/jump, flash/jump targets** | ✅ | this update |
-| M4c–M4e | Attachment sheet/media pickers/camera, real media bubbles, groups & info screens, in-chat search, personalization | ⏳ | plan in `docs/M4_READINESS.md` |
+| **M4b** | **Conversation messaging: full composer states (reply/edit/voice/blocked/read-only, mentions), long-press action sheet + quick reactions + reactors sheet, reaction rows, multi-select batch actions, reply send + quote bars, forward sheet with comment, delete-for-me/everyone, voice notes (send + simulated playback), pinned banner with cycling/jump, flash/jump targets** | ✅ | |
+| **M4c** | **Media & pickers per plan: attachment tray (S24), photo/video picker + caption editor over bundled samples (S25), camera simulation (S26), real rich media bubbles + viewer (S33), create-poll (S39), location picker + live durations (S40), contact share sheet, SAF documents & audio sent as files + tap-to-open, real voice playback (`VoicePlaybackController`), seed sweep** | ✅ | this update |
+| M4d | Groups & info: contact/group/message info, create/edit group, permissions UI, in-chat search | ⏳ | plan in `docs/M4_READINESS.md` |
+| M4e | Chat personalization: starred/pinned lists, wallpaper & accent override, disappearing messages | ⏳ | |
 | M5–M7 | Calls, People, Settings, Misc screens | ⏳ | |
 
-**Known limitations (accepted):** voice notes render with simulated playback (real audio is
-M4c); Image/Video/File/Location/Contact/Poll/Sticker content stays on labelled placeholder
-bubbles until M4c; attachment sheet/camera/media picker are M4c; message info, group admin UI,
-in-chat search, wallpaper/disappearing/polls are M4d–M4e; mock state resets between launches;
-time labels & preview strings are English-only; Calls/People/Settings tabs remain placeholders;
-composer Enter = newline (Enter-sends is an M6 setting).
+**Known limitations (accepted):** recording remains simulated (hold-to-record produces a voice
+message with a duration/waveform; the bundled clip closest to that duration plays back, and no
+microphone permission is used — real mic recording stays Phase 2); media picked from the system
+photo/video picker is sent as the real content uri (pickable once by design of the Android
+picker contract) while camera & gallery tiles in the attach tray surface bundled sample stills
+and videos so demos work without a camera roll; the media viewer's share opens the system share
+sheet and Info is a coming-soon toast (screen is M4d); message info, group admin UI, in-chat
+search, wallpaper/disappearing are M4d–M4e; mock state resets between launches; time labels &
+preview strings are English-only; Calls/People/Settings tabs remain placeholders; composer
+Enter = newline (Enter-sends is an M6 setting).
 
 ## 10. How to add a new screen (checklist)
 
