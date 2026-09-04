@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pulse</string>
+    <!-- Main bottom navigation (S18) -->
+    <string name="tab_chats">Chats</string>
+    <string name="tab_calls">Calls</string>
+    <string name="tab_people">People</string>
+    <string name="tab_settings">Settings</string>
+</resources>

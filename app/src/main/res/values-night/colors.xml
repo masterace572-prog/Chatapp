@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="launcher_bg">#3B5BDB</color>
+    <!-- Splash background uses the dark theme background token -->
+    <color name="splash_background">#0F0F12</color>
+</resources>
