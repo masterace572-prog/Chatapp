@@ -21,6 +21,23 @@ internal val PulseFontFamily = FontFamily(
     Font(R.font.inter_semibold, FontWeight.SemiBold),
 )
 
+/**
+ * Named font weights so component code never spells weight literals
+ * (design tokens, PRD §4.2).
+ */
+object PulseFontWeights {
+    val Regular = FontWeight.Normal
+    val Medium = FontWeight.Medium
+    val SemiBold = FontWeight.SemiBold
+}
+
+/**
+ * Initials font size inside [androidx.compose.ui.graphics] avatars: scales
+ * with the avatar diameter (tokenised avatar letterform, PRD §7 Avatar).
+ */
+fun avatarInitialsFontSize(avatarSizeDp: Float): androidx.compose.ui.unit.TextUnit =
+    (avatarSizeDp * 0.36f).sp
+
 internal val PulseTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = PulseFontFamily,

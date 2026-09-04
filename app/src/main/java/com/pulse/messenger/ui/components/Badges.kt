@@ -65,7 +65,7 @@ fun AppChip(
             Icon(
                 imageVector = leadingIcon,
                 contentDescription = null,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(com.pulse.messenger.ui.theme.PulseIconSizes.small),
                 tint = contentColor,
             )
             Spacer(Modifier.width(PulseSpacing.xs))
@@ -73,7 +73,7 @@ fun AppChip(
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge.copy(
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                fontWeight = if (selected) com.pulse.messenger.ui.theme.PulseFontWeights.SemiBold else com.pulse.messenger.ui.theme.PulseFontWeights.Medium,
             ),
             color = contentColor,
             maxLines = 1,
@@ -101,8 +101,7 @@ fun Badge(
         Text(
             text = text,
             style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 11.sp,
+                fontWeight = com.pulse.messenger.ui.theme.PulseFontWeights.SemiBold,
             ),
             color = if (muted) c.textSecondary else c.onAccent,
             maxLines = 1,

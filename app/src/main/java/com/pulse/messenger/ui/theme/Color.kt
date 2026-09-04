@@ -83,6 +83,8 @@ data class PulseColors(
     val onError: Color,
     val info: Color,
     val accentContainerMuted: Color,
+    /** True when the palette is the dark theme (drives derived tints). */
+    val isDark: Boolean = false,
 )
 
 private fun buildPulseColors(
@@ -100,6 +102,7 @@ private fun buildPulseColors(
     error: Color,
     info: Color,
     containerAlpha: Float,
+    isDark: Boolean,
 ): PulseColors {
     val accentContainer = lerp(accent, surface, 1f - containerAlpha)
     val onAccentContainer = lerp(accent, surface, 0.25f)
@@ -126,8 +129,17 @@ private fun buildPulseColors(
         onError = onError,
         info = info,
         accentContainerMuted = accentContainerMuted,
+        isDark = isDark,
     )
 }
+
+/**
+ * Readable text colour derived from an avatar tone for group sender names on
+ * bubbles: the tone is blended toward the theme's primary ink so it keeps the
+ * muted hue family but stays legible on surfaceVariant in both themes.
+ */
+internal fun senderToneTextColor(tone: AvatarTone, isDark: Boolean): Color =
+    lerp(tone.background, if (isDark) DarkTextPrimary else LightTextPrimary, if (isDark) 0.42f else 0.52f)
 
 internal fun lightPulseColors(accent: AccentPreset): PulseColors = buildPulseColors(
     background = LightBackground,
@@ -144,6 +156,7 @@ internal fun lightPulseColors(accent: AccentPreset): PulseColors = buildPulseCol
     error = LightError,
     info = LightInfo,
     containerAlpha = 0.10f, // accentContainer = accent @ 10%
+    isDark = false,
 )
 
 internal fun darkPulseColors(accent: AccentPreset): PulseColors = buildPulseColors(
@@ -161,6 +174,7 @@ internal fun darkPulseColors(accent: AccentPreset): PulseColors = buildPulseColo
     error = DarkError,
     info = DarkInfo,
     containerAlpha = 0.14f, // accentContainer = accent @ 14%
+    isDark = true,
 )
 
 /** Muted initials-avatar tones (PRD §4.1): 8 desaturated pairs, each with a matching foreground. */

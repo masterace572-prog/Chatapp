@@ -169,9 +169,8 @@
     <string name="placeholder_settings_title">Settings are on the way</string>
     <string name="placeholder_settings_subtitle">Account, privacy, appearance and more arrive in a later milestone.</string>
     <string name="stub_new_chat_body">Picking who to message opens here in milestone 4.</string>
-    <string name="stub_conversation_title">Conversation</string>
-    <string name="stub_conversation_body">The full conversation screen arrives in milestone 4.</string>
-
+    <string name="conversation_empty_title">Start the conversation</string>
+    
     <!-- S19 Chats list -->
     <string name="chats_archived">Archived</string>
     <string name="chats_empty_title">No chats yet</string>
@@ -245,4 +244,35 @@
     <string name="folders_kind_personal">Personal</string>
     <string name="folders_unread_only">Unread only</string>
     <string name="folders_unread_only_subtitle">Show chats with unread messages only.</string>
+
+    <!-- M4a conversation (S23) -->
+    <string name="conversation_back_cd">Back</string>
+    <string name="conversation_more_cd">More options</string>
+    <string name="conversation_call_cd">Voice call</string>
+    <string name="conversation_video_cd">Video call</string>
+    <string name="conversation_online">online</string>
+    <string name="conversation_typing">typing…</string>
+    <string name="conversation_members">%1$d members</string>
+    <string name="conversation_menu_view_profile">View profile</string>
+    <string name="conversation_menu_search">Search</string>
+    <string name="conversation_menu_mute">Mute</string>
+    <string name="conversation_menu_unmute">Unmute</string>
+    <string name="conversation_menu_wallpaper">Wallpaper</string>
+    <string name="conversation_menu_clear_chat">Clear chat</string>
+    <string name="conversation_menu_block">Block</string>
+    <string name="conversation_menu_report">Report</string>
+    <string name="conversation_coming_soon">%1$s is coming in a later milestone.</string>
+    <string name="conversation_muted">Notifications are muted for this chat.</string>
+    <plurals name="conversation_unread_messages">
+        <item quantity="one">1 unread message</item>
+        <item quantity="other">%1$d unread messages</item>
+    </plurals>
+    <string name="conversation_edited">edited</string>
+    <string name="conversation_deleted_message">This message was deleted</string>
+    <string name="conversation_tap_retry">Tap to retry</string>
+    <string name="conversation_composer_hint">Message</string>
+    <string name="conversation_composer_attachment_cd">Add attachment</string>
+    <string name="conversation_composer_camera_cd">Camera</string>
+    <string name="conversation_composer_mic_cd">Voice message</string>
+    <string name="conversation_composer_send_cd">Send</string>
 </resources>

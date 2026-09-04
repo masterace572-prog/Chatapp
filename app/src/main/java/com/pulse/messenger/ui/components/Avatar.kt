@@ -81,8 +81,8 @@ fun Avatar(
                 Text(
                     text = initialsOf(nameForInitials),
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = (size.value * 0.36f).sp,
+                        fontWeight = com.pulse.messenger.ui.theme.PulseFontWeights.SemiBold,
+                        fontSize = com.pulse.messenger.ui.theme.avatarInitialsFontSize(size.value),
                         color = avatarTone.foreground,
                     ),
                     textAlign = TextAlign.Center,

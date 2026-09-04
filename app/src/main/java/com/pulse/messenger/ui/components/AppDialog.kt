@@ -52,7 +52,7 @@ fun AppDialog(
                     imageVector = icon,
                     contentDescription = null,
                     tint = if (destructive) c.error else c.accent,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(com.pulse.messenger.ui.theme.PulseIconSizes.default),
                 )
             }
         } else {

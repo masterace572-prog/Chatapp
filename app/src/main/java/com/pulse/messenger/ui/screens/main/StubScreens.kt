@@ -14,9 +14,9 @@ import com.pulse.messenger.ui.icons.AppIcons
 import com.pulse.messenger.ui.theme.PulseTheme
 
 /**
- * Honest M3 stubs for destinations whose real screens land in M4
- * (conversation / new chat). They never fake functionality - the subtitle
- * states which milestone brings the real screen.
+ * Honest stub for the new-chat destination (real flow lands in M4c/M4d).
+ * It never fakes functionality - the subtitle states which milestone brings
+ * the real screen.
  */
 @Composable
 fun NewChatStubScreen(
@@ -37,30 +37,6 @@ fun NewChatStubScreen(
             icon = AppIcons.Pencil,
             title = title,
             subtitle = stringResource(R.string.stub_new_chat_body),
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
-fun ConversationStubScreen(
-    chatId: String,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(PulseTheme.colors.background),
-    ) {
-        AppTopBar(
-            title = chatId,
-            navigationIcon = { AppBackButton(onBack = onBack) },
-        )
-        EmptyState(
-            icon = AppIcons.MessageCircle,
-            title = stringResource(R.string.stub_conversation_title),
-            subtitle = stringResource(R.string.stub_conversation_body),
             modifier = Modifier.weight(1f),
         )
     }

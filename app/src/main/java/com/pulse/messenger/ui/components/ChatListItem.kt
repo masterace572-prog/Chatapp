@@ -100,7 +100,7 @@ fun ChatListItem(
                 Text(
                     text = summary.displayName,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = if (hasUnread) FontWeight.SemiBold else FontWeight.Medium,
+                        fontWeight = if (hasUnread) com.pulse.messenger.ui.theme.PulseFontWeights.SemiBold else com.pulse.messenger.ui.theme.PulseFontWeights.Medium,
                     ),
                     color = if (hasUnread) c.textPrimary else c.textPrimary,
                     maxLines = 1,
@@ -112,7 +112,7 @@ fun ChatListItem(
                     Icon(
                         imageVector = AppIcons.Pin,
                         contentDescription = stringResource(R.string.chats_pin_cd),
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.size(com.pulse.messenger.ui.theme.PulseIconSizes.tiny),
                         tint = c.textTertiary,
                     )
                 }
@@ -121,7 +121,7 @@ fun ChatListItem(
                     Icon(
                         imageVector = AppIcons.BadgeCheck,
                         contentDescription = stringResource(R.string.chats_verified_cd),
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.size(com.pulse.messenger.ui.theme.PulseIconSizes.tiny),
                         tint = c.info,
                     )
                 }
@@ -197,14 +197,14 @@ private fun PreviewLine(summary: ChatSummary, unread: Boolean) {
             Text(
                 text = stringResource(R.string.chats_draft_prefix),
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
+                fontWeight = com.pulse.messenger.ui.theme.PulseFontWeights.Medium,
                 color = c.error,
             )
         }
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = if (unread) FontWeight.Medium else FontWeight.Normal,
+                fontWeight = if (unread) com.pulse.messenger.ui.theme.PulseFontWeights.Medium else com.pulse.messenger.ui.theme.PulseFontWeights.Regular,
             ),
             color = color,
             maxLines = 1,
@@ -222,11 +222,11 @@ fun SelectionCheck(
     val c = PulseTheme.colors
     Box(
         modifier = modifier
-            .size(22.dp)
+            .size(com.pulse.messenger.ui.theme.PulseSizes.selectionCheck)
             .clip(CircleShape)
             .background(if (selected) c.accent else Color.Transparent)
             .border(
-                width = 2.dp,
+                width = com.pulse.messenger.ui.theme.PulseSizes.selectionStroke,
                 color = if (selected) c.accent else c.border,
                 shape = CircleShape,
             ),
@@ -236,28 +236,41 @@ fun SelectionCheck(
             Icon(
                 imageVector = AppIcons.Check,
                 contentDescription = stringResource(R.string.chats_selected_cd),
-                modifier = Modifier.size(13.dp),
+                modifier = Modifier.size(com.pulse.messenger.ui.theme.PulseSizes.selectionCheckMark),
                 tint = c.onAccent,
             )
         }
     }
 }
 
-/** Single/double delivery ticks for own messages (S19 right column). */
+/**
+ * Delivery indicator for own messages (S19 right column; S23 inside bubbles).
+ * Sending shows a clock, Failed an alert glyph, Sent a single tick,
+ * Delivered a double tick, Read a double tick in the read colour.
+ */
 @Composable
 fun DeliveryTicks(
     status: MessageStatus,
     modifier: Modifier = Modifier,
+    tint: Color? = null,
+    readTint: Color? = null,
 ) {
     val c = PulseTheme.colors
-    val color = if (status == MessageStatus.Read) c.accent else c.textTertiary
+    val base = tint ?: c.textTertiary
+    val color = when (status) {
+        MessageStatus.Read -> readTint ?: c.accent
+        MessageStatus.Failed -> c.error
+        else -> base
+    }
     Icon(
         imageVector = when (status) {
+            MessageStatus.Sending -> AppIcons.Clock
             MessageStatus.Read, MessageStatus.Delivered -> AppIcons.CheckCheck
-            else -> AppIcons.Check
+            MessageStatus.Failed -> AppIcons.AlertTriangle
+            MessageStatus.Sent -> AppIcons.Check
         },
         contentDescription = null,
-        modifier = modifier.size(16.dp),
+        modifier = modifier.size(PulseSizes.bubbleMetaIcon),
         tint = color,
     )
 }

@@ -40,7 +40,8 @@ import com.pulse.messenger.ui.screens.friends.FindFriendsScreen
 import com.pulse.messenger.ui.screens.login.LoginEmailScreen
 import com.pulse.messenger.ui.screens.login.LoginPasswordScreen
 import com.pulse.messenger.ui.screens.login.LoginPhoneScreen
-import com.pulse.messenger.ui.screens.main.ConversationStubScreen
+import com.pulse.messenger.ui.screens.conversation.ConversationScreen
+import com.pulse.messenger.ui.screens.conversation.ConversationViewModel
 import com.pulse.messenger.ui.screens.main.MainScreen
 import com.pulse.messenger.ui.screens.main.NewChatStubScreen
 import com.pulse.messenger.ui.screens.archived.ArchivedScreen
@@ -325,9 +326,10 @@ fun PulseApp(modifier: Modifier = Modifier) {
             composable(
                 route = PulseRoutes.CHAT,
                 arguments = listOf(navArgument("chatId") { type = NavType.StringType }),
-            ) { entry ->
-                ConversationStubScreen(
-                    chatId = entry.arguments?.getString("chatId").orEmpty(),
+            ) {
+                val viewModel: ConversationViewModel = hiltViewModel()
+                ConversationScreen(
+                    vm = viewModel,
                     onBack = { navController.popBackStack() },
                 )
             }

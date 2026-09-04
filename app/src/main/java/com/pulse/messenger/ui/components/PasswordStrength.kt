@@ -117,7 +117,7 @@ fun PasswordRequirementRow(
     ) {
         Box(
             modifier = Modifier
-                .size(20.dp)
+                .size(com.pulse.messenger.ui.theme.PulseIconSizes.inline)
                 .clip(CircleShape)
                 .background(if (met) c.success.copy(alpha = 0.14f) else c.surfaceVariant),
             contentAlignment = Alignment.Center,

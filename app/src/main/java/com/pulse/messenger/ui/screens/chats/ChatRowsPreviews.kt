@@ -15,6 +15,7 @@ import com.pulse.messenger.ui.components.AppDivider
 import com.pulse.messenger.ui.components.ChatListItem
 import com.pulse.messenger.domain.model.ChatSummary
 import com.pulse.messenger.domain.model.Message
+import com.pulse.messenger.domain.model.MessageContent
 import com.pulse.messenger.domain.model.MessageStatus
 import com.pulse.messenger.domain.model.MessageType
 import com.pulse.messenger.ui.theme.PulseTheme
@@ -44,16 +45,29 @@ private fun sampleMessage(
     isOutgoing: Boolean = false,
     status: MessageStatus = MessageStatus.Read,
     type: MessageType = MessageType.Text,
-): Message = Message(
-    id = id,
-    chatId = "c-preview",
-    senderId = if (isOutgoing) "me" else "u-1",
-    type = type,
-    text = text,
-    sentAtMillis = System.currentTimeMillis() - minutesAgo * 60_000L,
-    status = status,
-    isOutgoing = isOutgoing,
-)
+): Message {
+    val content: MessageContent = when (type) {
+        MessageType.Text -> MessageContent.Text(text)
+        MessageType.Image -> MessageContent.Image(listOf("sample://preview/image.png"), caption = text)
+        MessageType.System -> MessageContent.System(text)
+        MessageType.Video -> MessageContent.Video("sample://preview/video.mp4", durationSeconds = 8, caption = text)
+        MessageType.Voice -> MessageContent.Voice(18, List(14) { 30 + it * 4 })
+        MessageType.File -> MessageContent.File(text, 2048)
+        MessageType.Location -> MessageContent.Location(0.0, 0.0, text)
+        MessageType.Contact -> MessageContent.Contact("u-x", text)
+        MessageType.Poll -> MessageContent.Poll(text, listOf("Option A", "Option B"))
+        MessageType.Sticker -> MessageContent.Sticker(text)
+    }
+    return Message(
+        id = id,
+        chatId = "c-preview",
+        senderId = if (isOutgoing) "me" else "u-1",
+        content = content,
+        sentAtMillis = System.currentTimeMillis() - minutesAgo * 60_000L,
+        status = status,
+        isOutgoing = isOutgoing,
+    )
+}
 
 private fun summary(
     name: String,
