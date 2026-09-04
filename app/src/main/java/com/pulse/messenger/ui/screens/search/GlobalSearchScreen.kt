@@ -45,13 +45,13 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pulse.messenger.R
 import com.pulse.messenger.domain.model.ChatSummary
 import com.pulse.messenger.domain.model.Message
 import com.pulse.messenger.domain.model.User
 import com.pulse.messenger.ui.components.AppBackButton
+import com.pulse.messenger.ui.components.AppIconButton
 import com.pulse.messenger.ui.components.AppChip
 import com.pulse.messenger.ui.components.Avatar
 import com.pulse.messenger.ui.components.ChatListItem
@@ -59,6 +59,7 @@ import com.pulse.messenger.ui.components.EmptyState
 import com.pulse.messenger.ui.icons.AppIcons
 import com.pulse.messenger.ui.theme.AvatarTones
 import com.pulse.messenger.ui.theme.PulseIconSizes
+import com.pulse.messenger.ui.theme.PulseSizes
 import com.pulse.messenger.ui.theme.PulseShapes
 import com.pulse.messenger.ui.theme.PulseSpacing
 import com.pulse.messenger.ui.theme.PulseTheme
@@ -106,7 +107,7 @@ fun GlobalSearchScreen(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(48.dp)
+                    .height(PulseSizes.minTouchTarget)
                     .clip(PulseShapes.full)
                     .background(c.surfaceVariant),
                 contentAlignment = Alignment.CenterStart,
@@ -154,15 +155,11 @@ fun GlobalSearchScreen(
                         )
                     }
                     if (uiState.query.isNotEmpty()) {
-                        Icon(
-                            imageVector = AppIcons.Close,
+                        AppIconButton(
+                            icon = AppIcons.Close,
                             contentDescription = stringResource(R.string.common_clear),
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .clickable { vm.onQueryChange("") }
-                                .size(28.dp)
-                                .padding(4.dp),
-                            tint = c.textSecondary,
+                            onClick = { vm.onQueryChange("") },
+                            iconSize = PulseIconSizes.inline,
                         )
                     }
                 }
@@ -212,7 +209,7 @@ fun GlobalSearchScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(26.dp),
+                    modifier = Modifier.size(PulseIconSizes.default),
                     color = c.accent,
                     strokeWidth = 2.dp,
                 )
@@ -284,7 +281,12 @@ private fun RecentSearches(
                             .clip(PulseShapes.full)
                             .background(c.surfaceVariant)
                             .clickable { onSearch(term) }
-                            .padding(start = PulseSpacing.lg, end = PulseSpacing.xs, top = 6.dp, bottom = 6.dp),
+                            .padding(
+                                start = PulseSpacing.lg,
+                                end = PulseSpacing.xs,
+                                top = PulseSpacing.sm,
+                                bottom = PulseSpacing.sm,
+                            ),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
@@ -300,8 +302,8 @@ private fun RecentSearches(
                             modifier = Modifier
                                 .clip(CircleShape)
                                 .clickable { onRemove(term) }
-                                .size(20.dp)
-                                .padding(3.dp),
+                                .size(PulseIconSizes.inline)
+                                .padding(PulseSpacing.xs),
                             tint = c.textTertiary,
                         )
                     }
@@ -319,16 +321,16 @@ private fun SearchResultsList(
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(modifier = modifier.fillMaxWidth()) {
-        state.visible.forEach { (section, items) ->
-            item(key = "header-${section.name}") {
+        state.visible.forEach { group ->
+            item(key = "header-${group.section.name}") {
                 SearchSectionHeader(
-                    title = stringResource(section.titleRes),
-                    count = items.size,
+                    title = stringResource(group.section.titleRes),
+                    count = group.itemCount,
                 )
             }
-            when (section) {
-                SearchSection.Chats -> items(
-                    items = items as List<ChatSummary>,
+            when (group) {
+                is SearchGroup.ChatGroup -> items(
+                    items = group.chats,
                     key = { "chat-${it.chatId}" },
                 ) { chat ->
                     ChatListItem(
@@ -336,17 +338,13 @@ private fun SearchResultsList(
                         onClick = { onOpenChat(chat.chatId) },
                     )
                 }
-                SearchSection.People -> items(
-                    items = items as List<User>,
+                is SearchGroup.PersonGroup -> items(
+                    items = group.people,
                     key = { "people-${it.id}" },
                 ) { user -> SearchPersonRow(user) }
-                SearchSection.Messages,
-                SearchSection.Links,
-                SearchSection.Media,
-                SearchSection.Files,
-                -> items(
-                    items = items as List<Message>,
-                    key = { "msg-${it.id}" },
+                is SearchGroup.MessageGroup -> items(
+                    items = group.messages,
+                    key = { "${group.section.name}-${it.id}" },
                 ) { message ->
                     SearchMessageRow(
                         message = message,

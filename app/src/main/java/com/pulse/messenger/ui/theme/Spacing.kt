@@ -35,4 +35,10 @@ object PulseSizes {
     val topBarHeight = 56.dp
     val dividerHairline = 1.dp
     val inputHeight = 56.dp
+
+    /** List divider indent aligning under the 52dp avatar block (S19/S21). */
+    val chatRowDividerInset = 84.dp
+
+    /** Bottom list padding so the floating action bar never covers the last row. */
+    val fabClearance = 96.dp
 }

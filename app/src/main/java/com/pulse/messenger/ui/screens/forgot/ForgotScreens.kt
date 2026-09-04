@@ -121,7 +121,7 @@ fun ForgotInboxScreen(
                         android.net.Uri.parse("mailto:$email"),
                     )
                     runCatching {
-                        startActivity(context, intent, null)
+                        context.startActivity(intent)
                     }.onFailure {
                         vm.notice(AuthSnackbar.NoEmailApp)
                     }

@@ -11,6 +11,8 @@ import com.pulse.messenger.domain.repository.ContactsRepository
 import com.pulse.messenger.domain.repository.SearchHistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -52,28 +54,48 @@ data class SearchUiState(
     /** True when a query ran and produced no results at all. */
     val noResults: Boolean = false,
 ) {
-    /** Results visible under the active filter. */
-    val visible: List<Pair<SearchSection, List<Any>>> by lazy {
-        val all = listOf(
-            SearchSection.Chats to results.chats,
-            SearchSection.People to results.people,
-            SearchSection.Messages to results.messages,
-            SearchSection.Media to results.media,
-            SearchSection.Links to results.links,
-            SearchSection.Files to results.files,
+    /** Results visible under the active filter, as typed sections. */
+    val visible: List<SearchGroup> by lazy {
+        val groups = listOf(
+            SearchGroup.ChatGroup(results.chats),
+            SearchGroup.PersonGroup(results.people),
+            SearchGroup.MessageGroup(results.messages, SearchSection.Messages),
+            SearchGroup.MessageGroup(results.media, SearchSection.Media),
+            SearchGroup.MessageGroup(results.links, SearchSection.Links),
+            SearchGroup.MessageGroup(results.files, SearchSection.Files),
         )
-        when (filter) {
-            SearchFilter.All -> all.filter { (_, items) -> items.isNotEmpty() }
-            SearchFilter.Chats -> all.filter { it.first == SearchSection.Chats && it.second.isNotEmpty() }
-            SearchFilter.People -> all.filter { it.first == SearchSection.People && it.second.isNotEmpty() }
-            SearchFilter.Messages -> all.filter {
-                it.first in setOf(SearchSection.Messages, SearchSection.Links) && it.second.isNotEmpty()
-            }
-            SearchFilter.Media -> all.filter {
-                it.first in setOf(SearchSection.Media, SearchSection.Links, SearchSection.Files) &&
-                    it.second.isNotEmpty()
-            }
+        val allowed: Set<SearchSection> = when (filter) {
+            SearchFilter.All -> SearchSection.entries.toSet()
+            SearchFilter.Chats -> setOf(SearchSection.Chats)
+            SearchFilter.People -> setOf(SearchSection.People)
+            SearchFilter.Messages -> setOf(SearchSection.Messages, SearchSection.Links)
+            SearchFilter.Media -> setOf(SearchSection.Media, SearchSection.Links, SearchSection.Files)
         }
+        groups.filter { it.section in allowed && it.isNotEmpty }
+    }
+}
+
+/** One typed, ordered search-result section (replaces unchecked Any casts). */
+sealed interface SearchGroup {
+    val section: SearchSection
+    val isNotEmpty: Boolean
+    val itemCount: Int
+
+    data class ChatGroup(val chats: List<ChatSummary>) : SearchGroup {
+        override val section = SearchSection.Chats
+        override val isNotEmpty: Boolean get() = chats.isNotEmpty()
+        override val itemCount: Int get() = chats.size
+    }
+
+    data class PersonGroup(val people: List<User>) : SearchGroup {
+        override val section = SearchSection.People
+        override val isNotEmpty: Boolean get() = people.isNotEmpty()
+        override val itemCount: Int get() = people.size
+    }
+
+    data class MessageGroup(val messages: List<Message>, override val section: SearchSection) : SearchGroup {
+        override val isNotEmpty: Boolean get() = messages.isNotEmpty()
+        override val itemCount: Int get() = messages.size
     }
 }
 
@@ -87,6 +109,7 @@ enum class SearchSection(val titleRes: Int) {
     Files(com.pulse.messenger.R.string.search_section_files),
 }
 
+@OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     chatRepository: ChatRepository,

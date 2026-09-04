@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pulse.messenger.R
 import com.pulse.messenger.domain.model.ChatFolder
-import com.pulse.messenger.domain.model.ChatFolderRules
 import com.pulse.messenger.domain.model.ChatKind
 import com.pulse.messenger.ui.components.AppBackButton
 import com.pulse.messenger.ui.components.AppBottomSheet
@@ -213,7 +213,7 @@ private fun FolderRow(
             imageVector = AppIcons.GripVertical,
             contentDescription = null,
             modifier = Modifier
-                .height(24.dp)
+                .size(PulseIconSizes.default)
                 .padding(horizontal = PulseSpacing.xs),
             tint = c.textTertiary,
         )
@@ -234,7 +234,7 @@ private fun FolderRow(
                 text = stringResource(
                     R.string.folders_subtitle,
                     chatCount,
-                    ChatFolderRules.describe(folder),
+                    folderRulesLabel(folder),
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = c.textSecondary,
@@ -397,3 +397,11 @@ private fun ChatFolder.toDraft(): FolderDraft =
         includePersonal = ChatKind.Direct in includeKinds,
         onlyUnread = onlyUnread,
     )
+
+/** Localized one-line summary of a folder's rules (Groups/Personal/Unread). */
+@Composable
+private fun folderRulesLabel(folder: ChatFolder): String = buildList {
+    if (ChatKind.Group in folder.includeKinds) add(stringResource(R.string.folders_kind_groups))
+    if (ChatKind.Direct in folder.includeKinds) add(stringResource(R.string.folders_kind_personal))
+    if (folder.onlyUnread) add(stringResource(R.string.folders_unread_only))
+}.joinToString(" \u00b7 ").ifEmpty { "" }

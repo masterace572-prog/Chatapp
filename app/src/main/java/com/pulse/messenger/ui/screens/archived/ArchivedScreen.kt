@@ -24,6 +24,7 @@ import com.pulse.messenger.ui.components.EmptyState
 import com.pulse.messenger.ui.components.SwipeAction
 import com.pulse.messenger.ui.components.SwipeableRow
 import com.pulse.messenger.ui.icons.AppIcons
+import com.pulse.messenger.ui.theme.PulseSizes
 import com.pulse.messenger.ui.theme.PulseTheme
 
 /**
@@ -76,7 +77,7 @@ fun ArchivedScreen(
                             onClick = { onOpenChat(summary.chatId) },
                         )
                     }
-                    AppDivider(insetStart = 84.dp)
+                    AppDivider(insetStart = PulseSizes.chatRowDividerInset)
                 }
             }
         }

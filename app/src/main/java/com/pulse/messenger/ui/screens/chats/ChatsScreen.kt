@@ -50,6 +50,7 @@ import com.pulse.messenger.ui.components.SwipeableRow
 import com.pulse.messenger.ui.icons.AppIcons
 import com.pulse.messenger.ui.theme.PulseIconSizes
 import com.pulse.messenger.ui.theme.PulseShapes
+import com.pulse.messenger.ui.theme.PulseSizes
 import com.pulse.messenger.ui.theme.PulseSpacing
 import com.pulse.messenger.ui.theme.PulseTheme
 
@@ -123,7 +124,7 @@ fun ChatsTab(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        bottom = 96.dp,
+                        bottom = PulseSizes.fabClearance,
                     ),
                 ) {
                     items(
@@ -142,7 +143,7 @@ fun ChatsTab(
                             onArchive = { vm.archive(summary.chatId) },
                             onTogglePin = { vm.togglePin(summary.chatId) },
                         )
-                        AppDivider(insetStart = 84.dp)
+                        AppDivider(insetStart = PulseSizes.chatRowDividerInset)
                     }
                 }
             }
@@ -468,7 +469,7 @@ fun ChatListSkeleton(modifier: Modifier = Modifier) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 com.pulse.messenger.ui.components.SkeletonCircle(
-                    modifier = Modifier.size(52.dp),
+                    modifier = Modifier.size(PulseSizes.avatarChat),
                 )
                 Spacer(Modifier.width(PulseSpacing.lg))
                 Column(Modifier.weight(1f)) {

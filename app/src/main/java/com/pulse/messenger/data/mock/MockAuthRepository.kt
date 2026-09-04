@@ -1,15 +1,28 @@
 package com.pulse.messenger.data.mock
 
+import android.content.Context
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import com.pulse.messenger.di.ApplicationScope
 import com.pulse.messenger.domain.model.GoogleAccount
 import com.pulse.messenger.domain.model.OtpChannel
 import com.pulse.messenger.domain.model.SessionState
 import com.pulse.messenger.domain.model.SignInResult
 import com.pulse.messenger.domain.model.User
 import com.pulse.messenger.domain.repository.AuthRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private val Context.authDataStore by preferencesDataStore(name = "pulse_session")
 
 /**
  * Mock auth (PRD §9):
@@ -19,9 +32,19 @@ import javax.inject.Singleton
  *  - profile fields accumulate in-memory and completeOnboarding() signs in.
  */
 @Singleton
-class MockAuthRepository @Inject constructor() : AuthRepository {
+class MockAuthRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
+    @ApplicationScope private val scope: CoroutineScope,
+) : AuthRepository {
 
-    private val session = MutableStateFlow<SessionState>(SessionState.LoggedOut)
+    private object Keys {
+        val SessionJson = stringPreferencesKey("session_json")
+    }
+
+    /** Session survives restarts: seeded synchronously at startup, written on change. */
+    private val session = MutableStateFlow<SessionState>(
+        runBlocking { restoreSession() },
+    )
 
     /** Accumulates profile setup (S12-S15) until completeOnboarding(). */
     private data class PendingProfile(
@@ -34,6 +57,50 @@ class MockAuthRepository @Inject constructor() : AuthRepository {
 
     private var pending = PendingProfile()
     private var googleAccount: GoogleAccount? = null
+
+    /* ---------- Session persistence (DataStore "pulse_session") ---------- */
+
+    private suspend fun restoreSession(): SessionState {
+        val json = context.authDataStore.data.first()[Keys.SessionJson] ?: return SessionState.LoggedOut
+        return runCatching {
+            val o = JSONObject(json)
+            if (!o.optBoolean("logged_in", false)) return SessionState.LoggedOut
+            SessionState.LoggedIn(
+                User(
+                    id = o.getString("id"),
+                    firstName = o.optString("first_name", "You"),
+                    lastName = o.optString("last_name", ""),
+                    username = o.optString("username", "you"),
+                    phone = o.optString("phone").ifBlank { null },
+                    bio = o.optString("bio").ifBlank { null },
+                    avatarSeed = o.optInt("avatar_seed", 0),
+                ),
+            )
+        }.getOrDefault(SessionState.LoggedOut)
+    }
+
+    private fun logIn(user: User) {
+        session.value = SessionState.LoggedIn(user)
+        val payload = JSONObject()
+            .put("logged_in", true)
+            .put("id", user.id)
+            .put("first_name", user.firstName)
+            .put("last_name", user.lastName)
+            .put("username", user.username)
+            .put("phone", user.phone ?: "")
+            .put("bio", user.bio ?: "")
+            .put("avatar_seed", user.avatarSeed)
+        scope.launch {
+            context.authDataStore.edit { it[Keys.SessionJson] = payload.toString() }
+        }
+    }
+
+    private fun logOut() {
+        session.value = SessionState.LoggedOut
+        scope.launch {
+            context.authDataStore.edit { it.remove(Keys.SessionJson) }
+        }
+    }
 
     private val existingGoogleEmails = mapOf(
         "aarav.kapoor@gmail.com" to User(
@@ -64,7 +131,7 @@ class MockAuthRepository @Inject constructor() : AuthRepository {
             bio = null,
             avatarSeed = email.hashCode(),
         )
-        session.value = SessionState.LoggedIn(user)
+        logIn(user)
         return Result.success(user)
     }
 
@@ -79,7 +146,7 @@ class MockAuthRepository @Inject constructor() : AuthRepository {
         Simulator.networkDelay()
         val existing = existingGoogleEmails[account.email.lowercase()]
         return if (existing != null) {
-            session.value = SessionState.LoggedIn(existing)
+            logIn(existing)
             Result.success(SignInResult(user = existing, isNewUser = false))
         } else {
             googleAccount = account
@@ -110,7 +177,7 @@ class MockAuthRepository @Inject constructor() : AuthRepository {
                 id = "me", firstName = "You", username = "you",
                 phone = "+91 98110 00000", avatarSeed = 1,
             )
-            session.value = SessionState.LoggedIn(user)
+            logIn(user)
         }
         return Result.success(Unit)
     }
@@ -202,7 +269,7 @@ class MockAuthRepository @Inject constructor() : AuthRepository {
             bio = pending.bio.ifBlank { null },
             avatarSeed = pending.avatarSeed ?: google?.avatarSeed ?: firstName.hashCode(),
         )
-        session.value = SessionState.LoggedIn(user)
+        logIn(user)
         return Result.success(user)
     }
 

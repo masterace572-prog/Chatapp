@@ -83,7 +83,7 @@ fun AppButton(
             scaleX = scale
             scaleY = scale
         }
-        .semantics { if (contentDescription != null) this.contentDescription = text }
+        .semantics { this.contentDescription = text }
         .then(if (fillMaxWidth) Modifier.fillMaxWidth() else Modifier)
 
     Surface(

@@ -100,27 +100,27 @@ private fun ChatRowsDemo() {
             summary = summary("Aria Kapoor", 3, unread = 3, verified = true),
             onClick = {},
         )
-        AppDivider(insetStart = 84.dp)
+        AppDivider(insetStart = com.pulse.messenger.ui.theme.PulseSizes.chatRowDividerInset)
         ChatListItem(
-            summary = summary("Design Team", 11, kind = ChatKind.Group, pinned = true, unread = 2, sender = "Kabir", members = listOf("Iva", "Dev", "Kabir"), last = sampleMessage("m2", "New spec is up ☝️", 21)),
+            summary = summary("Design Team", 11, kind = ChatKind.Group, pinned = true, unread = 2, sender = "Kabir", members = listOf("Iva", "Dev", "Kabir"), last = sampleMessage("m2", "New spec is up now", 21)),
             onClick = {},
         )
-        AppDivider(insetStart = 84.dp)
+        AppDivider(insetStart = com.pulse.messenger.ui.theme.PulseSizes.chatRowDividerInset)
         ChatListItem(
             summary = summary("Noah", 7, typing = true),
             onClick = {},
         )
-        AppDivider(insetStart = 84.dp)
+        AppDivider(insetStart = com.pulse.messenger.ui.theme.PulseSizes.chatRowDividerInset)
         ChatListItem(
-            summary = summary("Sam", 15, muted = true, unread = 4, last = sampleMessage("m3", "On my way 🛵", 120)),
+            summary = summary("Sam", 15, muted = true, unread = 4, last = sampleMessage("m3", "On my way over", 120)),
             onClick = {},
         )
-        AppDivider(insetStart = 84.dp)
+        AppDivider(insetStart = com.pulse.messenger.ui.theme.PulseSizes.chatRowDividerInset)
         ChatListItem(
             summary = summary("Lea", 2, draft = "Call me back when you're free", last = sampleMessage("m4", "See you at 6", 300)),
             onClick = {},
         )
-        AppDivider(insetStart = 84.dp)
+        AppDivider(insetStart = com.pulse.messenger.ui.theme.PulseSizes.chatRowDividerInset)
         ChatListItem(
             summary = summary("Me · outgoing read ticks", 5, last = sampleMessage("m5", "Sounds great!", 8, isOutgoing = true), sender = null),
             onClick = {},
@@ -165,6 +165,6 @@ private fun SelectionTopBarPreview() {
 @Composable
 private fun ChatSkeletonPreview() {
     RowShowcase {
-        ChatListSkeleton(Modifier.padding(top = 8.dp))
+        ChatListSkeleton(Modifier.padding(top = com.pulse.messenger.ui.theme.PulseSpacing.sm))
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -39,6 +40,7 @@ import com.pulse.messenger.ui.icons.AppIcons
 import com.pulse.messenger.ui.screens.chats.ChatsMoreAction
 import com.pulse.messenger.ui.screens.chats.ChatsTab
 import com.pulse.messenger.ui.screens.chats.ChatsViewModel
+import com.pulse.messenger.ui.theme.PulseSizes
 import com.pulse.messenger.ui.theme.PulseTheme
 
 /**
@@ -84,6 +86,18 @@ fun MainScreen(
         selectedTab = tab.ordinal
     }
 
+    // Back-stack rule (PRD S18): back on a non-Chats tab returns to Chats;
+    // back while multi-selecting exits selection first; only Chats + no
+    // selection lets the system back button finish the activity.
+    BackHandler(
+        enabled = selectedTab != MainTab.Chats.ordinal || chatsState.selectionMode,
+    ) {
+        when {
+            chatsState.selectionMode -> chatsViewModel.clearSelection()
+            else -> selectTab(MainTab.Chats)
+        }
+    }
+
     // More-menu items without a screen yet degrade to an honest snackbar;
     // "Settings" simply switches to the Settings tab.
     fun handleMore(action: ChatsMoreAction) {
@@ -117,7 +131,7 @@ fun MainScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             Column {
-                HorizontalDivider(thickness = 1.dp, color = c.border)
+                HorizontalDivider(thickness = PulseSizes.dividerHairline, color = c.border)
                 NavigationBar(containerColor = c.surface) {
                     tabs.forEachIndexed { index, tab ->
                         val selected = index == selectedTab

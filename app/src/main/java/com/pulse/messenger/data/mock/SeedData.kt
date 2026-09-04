@@ -11,7 +11,7 @@ import com.pulse.messenger.domain.model.User
 /**
  * Seed data foundation (PRD §5 + §9).
  *
- * M3 volume: 16 contacts, 14 chats (direct + groups; pinned, muted, archived,
+ * M3 volume: 16 contacts, 15 chats (11 direct + 4 groups; pinned, muted, archived,
  * unread states), per-chat messages driving previews and search, drafts and a
  * typing simulation target. M4 grows messages towards ~400 with media payloads,
  * replies, reactions and system messages.

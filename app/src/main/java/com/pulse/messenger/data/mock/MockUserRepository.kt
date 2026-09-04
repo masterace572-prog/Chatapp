@@ -8,8 +8,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Mock profile source. Returns the placeholder identity until M2 wires the
- * session user through the same interface.
+ * Mock profile source. Exposes the static placeholder identity [User.Me];
+ * the signed-in session user lives on AuthRepository. No UI consumer yet -
+ * wire this to the session user when the first profile screen lands (M5,
+ * Settings S54+). The interface keeps the UI decoupled from the session source.
  */
 @Singleton
 class MockUserRepository @Inject constructor() : UserRepository {

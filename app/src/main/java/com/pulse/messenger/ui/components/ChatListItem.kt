@@ -34,6 +34,7 @@ import com.pulse.messenger.ui.icons.AppIcons
 import com.pulse.messenger.ui.theme.AvatarTones
 import com.pulse.messenger.ui.theme.PulseIconSizes
 import com.pulse.messenger.ui.theme.PulseShapes
+import com.pulse.messenger.ui.theme.PulseSizes
 import com.pulse.messenger.ui.theme.PulseSpacing
 import com.pulse.messenger.ui.theme.PulseTheme
 import com.pulse.messenger.ui.util.MessageLabels
@@ -85,7 +86,7 @@ fun ChatListItem(
             Avatar(
                 name = summary.displayName,
                 avatarTone = AvatarTones.bySeed(summary.avatarSeed),
-                size = 52.dp,
+                size = PulseSizes.avatarChat,
                 isOnline = false,
                 isGroup = summary.isGroup,
                 groupMemberNames = summary.memberNames.take(2),
@@ -107,7 +108,7 @@ fun ChatListItem(
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 if (summary.isPinned) {
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(PulseSpacing.xs))
                     Icon(
                         imageVector = AppIcons.Pin,
                         contentDescription = stringResource(R.string.chats_pin_cd),
@@ -116,7 +117,7 @@ fun ChatListItem(
                     )
                 }
                 if (summary.isVerified) {
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(PulseSpacing.xs))
                     Icon(
                         imageVector = AppIcons.BadgeCheck,
                         contentDescription = stringResource(R.string.chats_verified_cd),
@@ -138,7 +139,7 @@ fun ChatListItem(
                 style = MaterialTheme.typography.labelMedium,
                 color = if (hasUnread) c.textPrimary else c.textTertiary,
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(PulseSpacing.xs))
             when {
                 hasUnread -> Badge(
                     count = summary.unreadCount,
