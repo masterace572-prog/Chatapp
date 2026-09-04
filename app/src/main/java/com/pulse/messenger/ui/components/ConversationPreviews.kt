@@ -23,6 +23,7 @@ import com.pulse.messenger.domain.model.ChatSummary
 import com.pulse.messenger.domain.model.ChatKind
 import com.pulse.messenger.domain.model.ChatRole
 import com.pulse.messenger.domain.model.GroupMember
+import com.pulse.messenger.domain.model.LinkPreview
 import com.pulse.messenger.domain.model.Message
 import com.pulse.messenger.domain.model.MessageContent
 import com.pulse.messenger.domain.model.MessageReaction
@@ -59,6 +60,9 @@ private fun bubble(
     edited: Boolean = false,
     deleted: Boolean = false,
     reactions: List<MessageReaction> = emptyList(),
+    linkPreview: LinkPreview? = null,
+    upload: Float? = null,
+    forwarded: Boolean = false,
 ): Message = Message(
     id = id,
     chatId = "c-preview",
@@ -70,6 +74,9 @@ private fun bubble(
     isEdited = edited,
     isDeleted = deleted,
     reactions = reactions,
+    linkPreview = linkPreview,
+    uploadProgress = upload,
+    forwardedFromUserId = if (forwarded) "u-aria" else null,
 )
 
 private fun text(id: String, sender: String, minAgo: Long, text: String, status: MessageStatus = MessageStatus.Read) =
@@ -584,4 +591,200 @@ private fun ConversationReadOnlyGroupPreview() {
         selectableChats = emptyList(),
     )
     ConversationContent(state = state)
+}
+
+/* ---------- M4c: media & rich bubble pairs ---------- */
+
+@Preview(name = "M4c · Image bubbles (light)", showBackground = true, widthDp = 400)
+@Preview(name = "M4c · Image bubbles (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun M4cImageBubblesPreview() {
+    PreviewHost {
+        Column(Modifier.padding(vertical = PulseSpacing.sm)) {
+            MessageBubble(
+                bubble("m4c-i1", "me", 10, MessageContent.Image(listOf("sample://photos/photo_palette.jpg"), caption = "Captioned from me", widthPx = 1200, heightPx = 800)),
+                onImageTap = {},
+            )
+            MessageBubble(
+                bubble("m4c-i2", "u-aria", 9, MessageContent.Image(listOf("sample://photos/photo_tea.jpg"), widthPx = 900, heightPx = 1200)),
+                onImageTap = {},
+            )
+            MessageBubble(
+                bubble("m4c-i3", "u-aria", 8, MessageContent.Image(listOf("sample://photos/photo_city.jpg"), widthPx = 1200, heightPx = 900), status = MessageStatus.Sending, upload = 0.55f),
+                onImageTap = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "M4c · Image grids 2/3/4+ (light)", showBackground = true, widthDp = 400)
+@Preview(name = "M4c · Image grids 2/3/4+ (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun M4cImageGridsPreview() {
+    PreviewHost {
+        Column(Modifier.padding(vertical = PulseSpacing.sm)) {
+            MessageBubble(
+                bubble("m4c-g1", "me", 12, MessageContent.Image(listOf("sample://photos/photo_books.jpg", "sample://photos/photo_city.jpg"), widthPx = 1200, heightPx = 900)),
+                onImageTap = {},
+            )
+            MessageBubble(
+                bubble("m4c-g2", "u-mira", 11, MessageContent.Image(listOf("sample://photos/photo_books.jpg", "sample://photos/photo_city.jpg", "sample://photos/photo_route.jpg"), caption = "Three views", widthPx = 1200, heightPx = 900)),
+                onImageTap = {},
+            )
+            MessageBubble(
+                bubble("m4c-g3", "u-sam", 10, MessageContent.Image(listOf("sample://photos/photo_park.jpg", "sample://photos/photo_beach.jpg", "sample://photos/photo_hills.jpg", "sample://photos/photo_route.jpg", "sample://photos/photo_city.jpg", "sample://photos/photo_books.jpg"), widthPx = 1200, heightPx = 900)),
+                onImageTap = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "M4c · Video bubbles (light)", showBackground = true, widthDp = 400)
+@Preview(name = "M4c · Video bubbles (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun M4cVideoBubblesPreview() {
+    PreviewHost {
+        Column(Modifier.padding(vertical = PulseSpacing.sm)) {
+            MessageBubble(
+                bubble("m4c-v1", "me", 8, MessageContent.Video("sample://videos/sample_video_1.mp4", durationSeconds = 6, widthPx = 320, heightPx = 240)),
+                onVideoTap = {},
+            )
+            MessageBubble(
+                bubble("m4c-v2", "u-sam", 7, MessageContent.Video("sample://videos/sample_video_2.mp4", durationSeconds = 9, widthPx = 320, heightPx = 240, caption = "From the fort")),
+                onVideoTap = {},
+            )
+            MessageBubble(
+                bubble("m4c-v3", "me", 6, MessageContent.Video("sample://videos/sample_video_1.mp4", durationSeconds = 6, widthPx = 320, heightPx = 240), status = MessageStatus.Sending, upload = 0.3f),
+                onVideoTap = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "M4c · File bubbles (light)", showBackground = true, widthDp = 400)
+@Preview(name = "M4c · File bubbles (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun M4cFileBubblesPreview() {
+    PreviewHost {
+        Column(Modifier.padding(vertical = PulseSpacing.sm)) {
+            MessageBubble(
+                bubble("m4c-f1", "me", 9, MessageContent.File("pitch-deck-v4.pdf", 24_637, "application/pdf", uri = "sample://files/sample_doc_pdf.pdf")),
+                onFileTap = {},
+            )
+            MessageBubble(
+                bubble("m4c-f2", "u-lea", 8, MessageContent.File("component-matrix.docx", 32_472, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", uri = "sample://files/sample_doc_docx.docx")),
+                onFileTap = {},
+            )
+            MessageBubble(
+                bubble("m4c-f3", "me", 7, MessageContent.File("pulse-debug-artifacts.zip", 32_499, "application/zip", uri = "sample://files/sample_archive.zip"), status = MessageStatus.Sending, upload = 0.72f),
+                onFileTap = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "M4c · Location bubbles (light)", showBackground = true, widthDp = 400)
+@Preview(name = "M4c · Location bubbles (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun M4cLocationBubblesPreview() {
+    PreviewHost {
+        Column(Modifier.padding(vertical = PulseSpacing.sm)) {
+            MessageBubble(
+                bubble("m4c-l1", "me", 6, MessageContent.Location(19.0760, 72.8777, "Bandra, Mumbai")),
+            )
+            MessageBubble(
+                bubble("m4c-l2", "u-kabir", 5, MessageContent.Location(18.6046, 73.7600, "Lonavala ghat viewpoint", isLive = true, liveDurationSeconds = 3_600)),
+            )
+            MessageBubble(
+                bubble("m4c-l3", "u-omar", 1, MessageContent.Location(15.2993, 74.0760, "Jetty seafood place, Goa", isLive = true, liveDurationSeconds = 28_800)),
+            )
+        }
+    }
+}
+
+@Preview(name = "M4c · Contact bubbles (light)", showBackground = true, widthDp = 400)
+@Preview(name = "M4c · Contact bubbles (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun M4cContactBubblesPreview() {
+    PreviewHost {
+        Column(Modifier.padding(vertical = PulseSpacing.sm)) {
+            MessageBubble(bubble("m4c-c1", "me", 7, MessageContent.Contact("u-noah", "Noah Khan", "+91 98110 10002", "noahk")))
+            MessageBubble(bubble("m4c-c2", "u-aria", 6, MessageContent.Contact("u-iva", "Iva Nair", "+91 98110 10007", "ivanair")))
+        }
+    }
+}
+
+@Preview(name = "M4c · Poll bubbles (light)", showBackground = true, widthDp = 400)
+@Preview(name = "M4c · Poll bubbles (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun M4cPollBubblesPreview() {
+    PreviewHost {
+        Column(Modifier.padding(vertical = PulseSpacing.sm)) {
+            MessageBubble(
+                bubble("m4c-p1", "u-nina", 8, MessageContent.Poll(
+                    question = "Saturday plan?",
+                    options = listOf("Dinner at mine", "Board games", "Movie night", "Farmers' market"),
+                    votes = mapOf(0 to listOf("me", "u-nina"), 1 to listOf("u-rohan"), 2 to listOf("u-ana", "u-mira")),
+                )),
+                onPollVote = {},
+                onPollRetract = {},
+            )
+            MessageBubble(
+                bubble("m4c-p2", "u-aria", 7, MessageContent.Poll(
+                    question = "Which radius is the new sheet token?",
+                    options = listOf("16dp", "20dp", "24dp", "28dp"),
+                    votes = mapOf(1 to listOf("u-sam"), 2 to listOf("me", "u-aria")),
+                    isAnonymous = true,
+                    isQuiz = true,
+                    correctOptionIndex = 2,
+                )),
+                onPollVote = {},
+                onPollRetract = {},
+            )
+            MessageBubble(
+                bubble("m4c-p3", "me", 6, MessageContent.Poll(
+                    question = "Dinner tonight?",
+                    options = listOf("Yes", "Order in"),
+                    multipleAnswers = true,
+                )),
+                onPollVote = {},
+                onPollRetract = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "M4c · Stickers (light)", showBackground = true, widthDp = 400)
+@Preview(name = "M4c · Stickers (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun M4cStickerPreview() {
+    PreviewHost {
+        Column(Modifier.padding(vertical = PulseSpacing.sm)) {
+            MessageBubble(bubble("m4c-s1", "me", 5, MessageContent.Sticker("sticker_pulse")))
+            MessageBubble(bubble("m4c-s2", "u-pulse", 4, MessageContent.Sticker("sticker_sun")))
+            MessageBubble(bubble("m4c-s3", "u-iva", 3, MessageContent.Sticker("sticker_run")))
+        }
+    }
+}
+
+@Preview(name = "M4c · Link preview cards (light)", showBackground = true, widthDp = 400)
+@Preview(name = "M4c · Link preview cards (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun M4cLinkPreviewPreview() {
+    PreviewHost {
+        Column(Modifier.padding(vertical = PulseSpacing.sm)) {
+            MessageBubble(
+                bubble(
+                    "m4c-x1", "me", 8, MessageContent.Text("Check the dark theme guide"),
+                    linkPreview = LinkPreview("https://material.io/design/color/dark-theme.html", "Material Design dark theme", "Recommended color tokens and surface overlays for dark UIs."),
+                ),
+            )
+            MessageBubble(
+                bubble(
+                    "m4c-x2", "u-aria", 7, MessageContent.Text("Spec is here"),
+                    linkPreview = LinkPreview("https://pulse.example.com/spec/shapes", "Pulse design spec - Shapes", "Corner radii tokens for bubbles, sheets and inputs."),
+                ),
+            )
+        }
+    }
 }

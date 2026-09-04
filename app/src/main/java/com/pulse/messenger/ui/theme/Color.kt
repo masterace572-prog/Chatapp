@@ -43,6 +43,30 @@ internal val DarkInfo = Color(0xFF4A8AD0)
 internal val LightScrim = Color(0x66000000)
 internal val DarkScrim = Color(0x99000000)
 
+/* ---------- M4c media/file/semantic tokens ---------- */
+internal val LightMediaScrim = Color(0x73000000) // ~45% solid scrim on media
+internal val DarkMediaScrim = Color(0x8A000000) // a touch deeper on dark surfaces
+internal val LightOnMedia = Color(0xFFFFFFFF)
+internal val DarkOnMedia = Color(0xFFFFFFFF)
+
+// Muted extension-family tints for file tiles (icon stays onFile white).
+internal val LightFilePdf = Color(0xFFB4553F)
+internal val DarkFilePdf = Color(0xFFCE7B66)
+internal val LightFileDoc = Color(0xFF3E6FB4)
+internal val DarkFileDoc = Color(0xFF6E93CF)
+internal val LightFileSheet = Color(0xFF3E8B5E)
+internal val DarkFileSheet = Color(0xFF5FA97E)
+internal val LightFileArchive = Color(0xFFB0842F)
+internal val DarkFileArchive = Color(0xFFCDA55B)
+internal val LightFileAudio = Color(0xFF8A5FA8)
+internal val DarkFileAudio = Color(0xFFA882C2)
+internal val LightFileGeneric = Color(0xFF66707E)
+internal val DarkFileGeneric = Color(0xFF8893A3)
+internal val LightOnFile = Color(0xFFFFFFFF)
+internal val DarkOnFile = Color(0xFFFFFFFF)
+internal val LightLive = Color(0xFF3E6FB4)
+internal val DarkLive = Color(0xFF6E93CF)
+
 /**
  * A muted accent choice (PRD §4.1 / S60 swatches). The app defaults to Indigo.
  * Each preset provides light and dark variants of the same hue family.
@@ -87,6 +111,25 @@ data class PulseColors(
     val accentContainerMuted: Color,
     /** Overlay dimming behind long-press popups and modals. */
     val scrim: Color,
+    /** Solid translucent surface over media (pill meta, play scrim, progress). */
+    val mediaScrim: Color,
+    /** Content on [mediaScrim] overlays. */
+    val onMediaScrim: Color,
+    /** Muted file-type tile tints (icon uses [onFile]). */
+    val filePdf: Color,
+    val fileDoc: Color,
+    val fileSheet: Color,
+    val fileArchive: Color,
+    val fileAudio: Color,
+    val fileGeneric: Color,
+    val onFile: Color,
+    /** Semantic containers for quiz/poll reveals. */
+    val successContainer: Color,
+    val onSuccessContainer: Color,
+    val errorContainer: Color,
+    val onErrorContainer: Color,
+    /** Live-location accent. */
+    val live: Color,
     /** True when the palette is the dark theme (drives derived tints). */
     val isDark: Boolean = false,
 )
@@ -107,8 +150,22 @@ private fun buildPulseColors(
     info: Color,
     containerAlpha: Float,
     scrim: Color,
+    mediaScrim: Color,
+    onMediaScrim: Color,
+    filePdf: Color,
+    fileDoc: Color,
+    fileSheet: Color,
+    fileArchive: Color,
+    fileAudio: Color,
+    fileGeneric: Color,
+    onFile: Color,
+    live: Color,
     isDark: Boolean,
 ): PulseColors {
+    val successContainer = lerp(success, surface, 1f - containerAlpha)
+    val onSuccessContainer = lerp(success, surface, 0.25f)
+    val errorContainer = lerp(error, surface, 1f - containerAlpha)
+    val onErrorContainer = lerp(error, surface, 0.25f)
     val accentContainer = lerp(accent, surface, 1f - containerAlpha)
     val onAccentContainer = lerp(accent, surface, 0.25f)
     val onError = Color.White
@@ -135,6 +192,20 @@ private fun buildPulseColors(
         info = info,
         accentContainerMuted = accentContainerMuted,
         scrim = scrim,
+        mediaScrim = mediaScrim,
+        onMediaScrim = onMediaScrim,
+        filePdf = filePdf,
+        fileDoc = fileDoc,
+        fileSheet = fileSheet,
+        fileArchive = fileArchive,
+        fileAudio = fileAudio,
+        fileGeneric = fileGeneric,
+        onFile = onFile,
+        successContainer = successContainer,
+        onSuccessContainer = onSuccessContainer,
+        errorContainer = errorContainer,
+        onErrorContainer = onErrorContainer,
+        live = live,
         isDark = isDark,
     )
 }
@@ -163,6 +234,16 @@ internal fun lightPulseColors(accent: AccentPreset): PulseColors = buildPulseCol
     info = LightInfo,
     containerAlpha = 0.10f, // accentContainer = accent @ 10%
     scrim = LightScrim,
+    mediaScrim = LightMediaScrim,
+    onMediaScrim = LightOnMedia,
+    filePdf = LightFilePdf,
+    fileDoc = LightFileDoc,
+    fileSheet = LightFileSheet,
+    fileArchive = LightFileArchive,
+    fileAudio = LightFileAudio,
+    fileGeneric = LightFileGeneric,
+    onFile = LightOnFile,
+    live = LightLive,
     isDark = false,
 )
 
@@ -182,6 +263,16 @@ internal fun darkPulseColors(accent: AccentPreset): PulseColors = buildPulseColo
     info = DarkInfo,
     containerAlpha = 0.14f, // accentContainer = accent @ 14%
     scrim = DarkScrim,
+    mediaScrim = DarkMediaScrim,
+    onMediaScrim = DarkOnMedia,
+    filePdf = DarkFilePdf,
+    fileDoc = DarkFileDoc,
+    fileSheet = DarkFileSheet,
+    fileArchive = DarkFileArchive,
+    fileAudio = DarkFileAudio,
+    fileGeneric = DarkFileGeneric,
+    onFile = DarkOnFile,
+    live = DarkLive,
     isDark = true,
 )
 

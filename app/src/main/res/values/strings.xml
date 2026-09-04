@@ -290,6 +290,30 @@
     <string name="conversation_copied">Copied</string>
     <string name="conversation_forwarded">Forwarded</string>
     <string name="conversation_forwarded_label">Forwarded</string>
+    <!-- M4c media/rich content -->
+    <string name="conversation_live_label">Live</string>
+    <string name="conversation_live_ended">Live ended</string>
+    <string name="conversation_photo">Photo</string>
+    <string name="conversation_video">Video</string>
+    <string name="conversation_video_play_cd">Play video</string>
+    <string name="conversation_image_cd">Photo</string>
+    <string name="conversation_sticker_cd">Sticker</string>
+    <string name="conversation_poll_anonymous">Anonymous</string>
+    <string name="conversation_poll_quiz">Quiz</string>
+    <string name="conversation_poll_your_vote">Your vote</string>
+    <string name="conversation_poll_correct">Correct answer</string>
+    <plurals name="conversation_poll_votes">
+        <item quantity="one">%d vote</item>
+        <item quantity="other">%d votes</item>
+    </plurals>
+    <string name="conversation_file_type_pdf">PDF</string>
+    <string name="conversation_file_type_doc">Document</string>
+    <string name="conversation_file_type_sheet">Spreadsheet</string>
+    <string name="conversation_file_type_archive">Archive</string>
+    <string name="conversation_file_type_audio">Audio</string>
+    <string name="conversation_file_type_file">File</string>
+    <string name="conversation_file_open_cd">Open file</string>
+    <string name="conversation_link_site">Link</string>
     <string name="conversation_react_cd">React</string>
     <string name="conversation_reactions_title">Reactions</string>
     <string name="conversation_more_reactions_cd">More reactions</string>

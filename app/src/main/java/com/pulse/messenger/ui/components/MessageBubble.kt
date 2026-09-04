@@ -109,6 +109,11 @@ fun MessageBubble(
     onReactionLongPress: (String) -> Unit = {},
     voicePlaying: Boolean = false,
     onVoiceToggle: () -> Unit = {},
+    onImageTap: ((Int) -> Unit)? = null,
+    onVideoTap: (() -> Unit)? = null,
+    onFileTap: (() -> Unit)? = null,
+    onPollVote: ((List<Int>) -> Unit)? = null,
+    onPollRetract: (() -> Unit)? = null,
 ) {
     val isOutgoing = message.isOutgoing
     val c = PulseTheme.colors
@@ -172,30 +177,57 @@ fun MessageBubble(
                     )
                 }
 
-                Box(
-                    modifier = Modifier
-                        .background(color = bubbleColor(message, isOutgoing), shape = bubbleShape)
-                        .then(clickModifier)
-                        .padding(horizontal = PulseSpacing.md, vertical = PulseSpacing.sm),
-                ) {
-                    Column {
-                        BubbleQuote(message = message, quote = quote, isOutgoing = isOutgoing, onClick = onQuoteTap)
-                        BubbleContent(
-                            message = message,
-                            isOutgoing = isOutgoing,
-                            voicePlaying = voicePlaying,
-                            onVoiceToggle = onVoiceToggle,
-                        )
-                        BubbleMetaRow(message = message, isOutgoing = isOutgoing)
-                    }
-                    // Flash overlay (drawn above content while fading).
-                    if (flashAlpha > 0f) {
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .clip(bubbleShape)
-                                .background(c.accentContainer.copy(alpha = flashAlpha)),
-                        )
+                val unsurfaced = !message.isDeleted && when (message.content) {
+                    is MessageContent.Image,
+                    is MessageContent.Video,
+                    is MessageContent.Sticker,
+                    is MessageContent.Location,
+                    is MessageContent.Poll,
+                    -> true
+                    else -> false
+                }
+                if (unsurfaced) {
+                    RichUnsurfacedBubble(
+                        message = message,
+                        isOutgoing = isOutgoing,
+                        shape = bubbleShape,
+                        maxBubbleWidth = maxBubbleWidth,
+                        quote = quote,
+                        onQuoteTap = onQuoteTap,
+                        flashAlpha = flashAlpha,
+                        onImageTap = onImageTap,
+                        onVideoTap = onVideoTap,
+                        onLongPress = onLongPress,
+                        onPollVote = onPollVote,
+                        onPollRetract = onPollRetract,
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .background(color = bubbleColor(message, isOutgoing), shape = bubbleShape)
+                            .then(clickModifier)
+                            .padding(horizontal = PulseSpacing.md, vertical = PulseSpacing.sm),
+                    ) {
+                        Column {
+                            BubbleQuote(message = message, quote = quote, isOutgoing = isOutgoing, onClick = onQuoteTap)
+                            BubbleContent(
+                                message = message,
+                                isOutgoing = isOutgoing,
+                                voicePlaying = voicePlaying,
+                                onVoiceToggle = onVoiceToggle,
+                                onFileTap = onFileTap,
+                            )
+                            BubbleMetaRow(message = message, isOutgoing = isOutgoing)
+                        }
+                        // Flash overlay (drawn above content while fading).
+                        if (flashAlpha > 0f) {
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clip(bubbleShape)
+                                    .background(c.accentContainer.copy(alpha = flashAlpha)),
+                            )
+                        }
                     }
                 }
 
@@ -227,18 +259,19 @@ private fun bubbleColor(message: Message, isOutgoing: Boolean): Color {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun BubbleQuote(
+internal fun BubbleQuote(
     message: Message,
     quote: BubbleQuoteData?,
     isOutgoing: Boolean,
     onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
 ) {
     if (quote == null || message.isDeleted || message.isSystem) return
     val c = PulseTheme.colors
     val accent = if (isOutgoing) c.onAccent else c.accent
     val quoteColor = if (isOutgoing) c.onAccent.copy(alpha = 0.92f) else c.textPrimary
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.combinedClickable(onClick = onClick) else Modifier)
             .padding(bottom = PulseSpacing.xs),
@@ -296,6 +329,7 @@ private fun BubbleContent(
     isOutgoing: Boolean,
     voicePlaying: Boolean,
     onVoiceToggle: () -> Unit,
+    onFileTap: (() -> Unit)?,
 ) {
     Column {
         // Forwarded label above the content (hidden for deleted/system).
@@ -306,7 +340,18 @@ private fun BubbleContent(
             message.isDeleted -> DeletedContent(isOutgoing = isOutgoing)
 
             message.content is MessageContent.Text -> {
-                BubbleText(message = message, isOutgoing = isOutgoing)
+                Column {
+                    BubbleText(message = message, isOutgoing = isOutgoing)
+                    val preview = message.linkPreview
+                    if (preview != null) {
+                        Spacer(Modifier.height(PulseSpacing.sm))
+                        LinkPreviewCard(
+                            preview = preview,
+                            isOutgoing = isOutgoing,
+                            modifier = Modifier.widthIn(max = 280.dp),
+                        )
+                    }
+                }
             }
 
             message.content is MessageContent.Voice -> {
@@ -321,7 +366,13 @@ private fun BubbleContent(
                 )
             }
 
-            else -> PlaceholderContent(message = message, isOutgoing = isOutgoing)
+            message.content is MessageContent.File -> {
+                FileMessageBody(message = message, isOutgoing = isOutgoing, onFileTap = onFileTap)
+            }
+
+            message.content is MessageContent.Contact -> {
+                ContactMessageBody(message = message, isOutgoing = isOutgoing)
+            }
         }
     }
 }
@@ -430,40 +481,6 @@ private fun BubbleText(message: Message, isOutgoing: Boolean) {
     )
 }
 
-/** Neutral placeholder for content types whose rendering lands M4c/M4d. */
-@Composable
-private fun PlaceholderContent(message: Message, isOutgoing: Boolean) {
-    val c = PulseTheme.colors
-    val contentColor = if (isOutgoing) c.onAccent else c.textPrimary
-    val type = message.type
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = iconForType(type),
-                contentDescription = null,
-                modifier = Modifier.size(PulseIconSizes.inline),
-                tint = if (isOutgoing) c.onAccent.copy(alpha = 0.85f) else c.textSecondary,
-            )
-            Spacer(Modifier.width(PulseSpacing.sm))
-            Text(
-                text = MessageLabels.bubbleLabel(type),
-                style = MaterialTheme.typography.labelLarge,
-                color = contentColor,
-            )
-        }
-        val caption = message.text
-        if (caption.isNotBlank() && caption != MessageLabels.bubbleLabel(type)) {
-            Text(
-                text = caption,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = contentColor.copy(alpha = 0.9f),
-                ),
-                modifier = Modifier.padding(top = PulseSpacing.xs),
-            )
-        }
-    }
-}
-
 private fun iconForType(type: MessageType) = when (type) {
     MessageType.Image -> AppIcons.Image
     MessageType.Video -> AppIcons.Play
@@ -478,51 +495,6 @@ private fun iconForType(type: MessageType) = when (type) {
 }
 
 /** Time (+ star, edited label, ticks) tucked into the bubble's bottom-right. */
-@Composable
-private fun ColumnScope.BubbleMetaRow(message: Message, isOutgoing: Boolean) {
-    val c = PulseTheme.colors
-    val metaColor = if (isOutgoing) c.onAccent.copy(alpha = 0.8f) else c.textTertiary
-    val edited = stringResource(R.string.conversation_edited)
-    Row(
-        modifier = Modifier
-            .align(Alignment.End)
-            .padding(top = PulseSpacing.tight),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (message.isStarred && !message.isDeleted) {
-            Icon(
-                imageVector = AppIcons.Star,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(PulseSizes.bubbleMetaIcon)
-                    .padding(end = PulseSpacing.xs),
-                tint = if (isOutgoing) c.onAccent.copy(alpha = 0.9f) else c.warning,
-            )
-        }
-        if (message.isEdited && !message.isDeleted) {
-            Text(
-                text = edited,
-                style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
-                color = metaColor,
-                modifier = Modifier.padding(end = PulseSpacing.xs),
-            )
-        }
-        Text(
-            text = ConversationFormat.clock(message.sentAtMillis),
-            style = MaterialTheme.typography.labelSmall,
-            color = metaColor,
-        )
-        if (isOutgoing) {
-            Spacer(Modifier.width(PulseSpacing.xs))
-            DeliveryTicks(
-                status = message.status,
-                tint = c.onAccent.copy(alpha = 0.75f),
-                readTint = c.onAccent,
-            )
-        }
-    }
-}
-
 /** Error line under a failed outgoing message (S23: "Tap to retry"). */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

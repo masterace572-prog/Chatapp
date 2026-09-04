@@ -86,6 +86,30 @@ object ConversationFormat {
     fun clock(millis: Long): String =
         Instant.ofEpochMilli(millis).atZone(timeZone).format(clockFmt)
 
+    /** Playback/duration label: 0:06 / 1:02 / 12:05. */
+    fun durationLabel(totalSeconds: Int): String {
+        val s = totalSeconds.coerceAtLeast(0)
+        return "%d:%02d".format(java.util.Locale.ROOT, s / 60, s % 60)
+    }
+
+    /** Human file size: B / KB / MB (one decimal below 10). */
+    fun bytesLabel(bytes: Long): String {
+        val b = bytes.coerceAtLeast(0)
+        return when {
+            b >= 1L shl 20 -> "%.1f MB".format(java.util.Locale.ROOT, b / 1048576.0)
+            b >= 1L shl 10 -> "%.0f KB".format(java.util.Locale.ROOT, b / 1024.0)
+            else -> "$b B"
+        }
+    }
+
+    /** Live-location remaining time label ("7h 12m" / "12m"). */
+    fun remainingLabel(millis: Long): String {
+        val mins = (millis.coerceAtLeast(0) / 60_000L).toInt()
+        val h = mins / 60
+        val m = mins % 60
+        return if (h > 0) "%dh %dm".format(java.util.Locale.ROOT, h, m) else "%dm".format(java.util.Locale.ROOT, m)
+    }
+
     private fun dateOf(millis: Long): LocalDate =
         Instant.ofEpochMilli(millis).atZone(timeZone).toLocalDate()
 
