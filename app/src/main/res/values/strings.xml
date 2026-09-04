@@ -375,6 +375,11 @@
     <string name="conversation_location_sent">Location sent</string>
     <string name="conversation_location_live_sent">Live location shared</string>
     <string name="conversation_location_none">No matching places</string>
+    <!-- M4c: contact share -->
+    <string name="conversation_contact_share_title">Share contact</string>
+    <string name="conversation_contact_share_subtitle">Tap a contact to share their card in this chat.</string>
+    <string name="conversation_contact_share_cd">Share contact</string>
+    <string name="conversation_contact_shared">Contact shared</string>
     <string name="conversation_location_map_cd">Map preview</string>
     <string name="conversation_location_place_cd">Select place</string>
     <string name="conversation_poll_created">Poll created</string>

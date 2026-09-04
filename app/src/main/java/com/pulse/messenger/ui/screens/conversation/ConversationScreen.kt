@@ -86,6 +86,7 @@ import com.pulse.messenger.ui.components.ChatHeader
 import com.pulse.messenger.ui.components.ChatHeaderAction
 import com.pulse.messenger.ui.components.ChatHeaderStatus
 import com.pulse.messenger.ui.components.ComposerUiState
+import com.pulse.messenger.ui.components.ContactShareSheetContent
 import com.pulse.messenger.ui.components.ConfirmDialog
 import com.pulse.messenger.ui.components.DateSeparator
 import com.pulse.messenger.ui.components.EmptyState
@@ -208,6 +209,7 @@ fun ConversationScreen(
             votePoll = vm::votePoll,
             retractVote = vm::retractVote,
             sendLocation = vm::sendLocation,
+            sendContact = vm::sendContact,
             toggleReaction = vm::toggleReaction,
             toggleStar = vm::toggleStar,
             pin = vm::pinMessage,
@@ -242,6 +244,7 @@ internal class VmBridge(
     val votePoll: (String, List<Int>) -> Unit,
     val retractVote: (String) -> Unit,
     val sendLocation: (Double, Double, String, Boolean, Long?) -> Unit,
+    val sendContact: (User) -> Unit,
     val toggleReaction: (String, String) -> Unit,
     val toggleStar: (String) -> Unit,
     val pin: (String) -> Unit,
@@ -303,6 +306,7 @@ internal fun ConversationContent(
     var viewerSession by remember { mutableStateOf<ViewerSession?>(null) }
     var pollComposerOpen by remember { mutableStateOf(false) }
     var locationPickerOpen by remember { mutableStateOf(false) }
+    var contactShareOpen by remember { mutableStateOf(false) }
 
     val chat = state.chat
     val overlayMessage = state.actionMessageId?.let { id ->
@@ -430,6 +434,10 @@ internal fun ConversationContent(
                 showTray = false
                 locationPickerOpen = true
             }
+            AttachmentTile.Contact -> {
+                showTray = false
+                contactShareOpen = true
+            }
             else -> toastComingSoon(context, attachmentTileLabel(tile))
         }
     }
@@ -492,6 +500,9 @@ internal fun ConversationContent(
     }
     BackHandler(enabled = locationPickerOpen) {
         locationPickerOpen = false
+    }
+    BackHandler(enabled = contactShareOpen) {
+        contactShareOpen = false
     }
 
     // Scroll-to target (reply quote / pinned banner taps).
@@ -1001,6 +1012,27 @@ internal fun ConversationContent(
                     ).show()
                 },
             )
+        }
+
+        // ---- M4c: contact share bottom sheet. ----
+        if (contactShareOpen) {
+            val directory = state.users.values
+                .filter { it.id != "me" }
+                .sortedBy { it.displayName }
+            if (directory.isNotEmpty()) {
+                AppBottomSheet(onDismissRequest = { contactShareOpen = false }) {
+                    ContactShareSheetContent(
+                        contacts = directory,
+                        onShare = { user ->
+                            contactShareOpen = false
+                            onVm?.sendContact?.invoke(user)
+                            snack(context.getString(R.string.conversation_contact_shared))
+                        },
+                    )
+                }
+            } else {
+                contactShareOpen = false
+            }
         }
 
         // ---- M4c S39: create-poll composer. ----

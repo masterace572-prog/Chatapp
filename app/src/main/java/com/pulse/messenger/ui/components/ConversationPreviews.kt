@@ -925,3 +925,16 @@ private fun M4cLiveLocationSheetPreview() {
         )
     }
 }
+
+@Preview(name = "M4c · Contact share sheet (light)", showBackground = true, widthDp = 400)
+@Preview(name = "M4c · Contact share sheet (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun M4cContactSharePreview() {
+    PreviewHost {
+        ContactShareSheetContent(
+            contacts = listOf(aria, noah, mira),
+            onShare = {},
+            modifier = Modifier.fillMaxWidth().height(300.dp),
+        )
+    }
+}

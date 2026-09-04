@@ -568,6 +568,25 @@ class ConversationViewModel @Inject constructor(
         viewModelScope.launch { chatRepository.retractVote(messageId) }
     }
 
+    /** Shares one Pulse contact card (User carries the card fields). */
+    fun sendContact(user: User) {
+        val replying = replyId.value
+        replyId.value = null
+        editId.value = null
+        draftText.value = ""
+        unreadMarker.value = 0
+        viewModelScope.launch {
+            chatRepository.sendContact(
+                chatId,
+                userId = user.id,
+                displayName = user.displayName,
+                phone = user.phone,
+                username = user.username,
+                replyToMessageId = replying,
+            )
+        }
+    }
+
     /** Sends a static or live location card (mock coordinates). */
     fun sendLocation(
         latitude: Double,
