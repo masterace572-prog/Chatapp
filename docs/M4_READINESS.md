@@ -1,106 +1,108 @@
-# M4 Readiness — Pulse
+# M4 Readiness & Milestone Plan — Pulse
 
-_Prepared 2026-09-04 from the pre-M4 audit (files at repo head `575a11b` + audit commit)._
-_Milestone status: M1 ✅ M2 ✅ M3 ✅ — M4 pending. Recommended split: M4a…M4e below._
-
-Verdict: **READY WITH NOTES** — no blockers. One design decision required before M4a (see §6).
+_Prepared 2026-09-04 from the pre-M4 audit; updated 2026-09-04 after M4a._
+_Milestone status: M1 ✅ M2 ✅ M3 ✅ Audit ✅ **M4a ✅** — M4b…M4e pending._
 
 ---
 
-## 1. Why READY (what the audit verified)
+## 1. M4a delivered (what was built)
 
-- Clean build: `./gradlew clean :app:assembleDebug` BUILD SUCCESSFUL, zero warnings.
-- All M3 checkable PRD items verified (S18 shell, S19 list + swipe actions + multi-select,
-  S20 search, S21 archived, S22 folders editor). M4-prerequisite UI exists and is tested
-  per-milestone (screenshots + user review of each ship).
-- Route surface is complete up to the conversation entry: every chat row (Chats/Archived/Search
-  results, folder chips drill-down) already navigates into `chat/{chatId}`.
-- Architecture/tokens/components (see `docs/PROJECT_STATE.md`) give M4 all building blocks it
-  needs; auth session persistence + back handling hardened in this audit.
-- Persistence gap is contained and consciously scoped (see §6 decision D1).
+- **Domain model v2** (`domain/model/ChatMessage.kt`, `User.kt`): sealed `MessageContent`
+  hierarchy with every PRD content type carrying realistic payload fields; Message flags
+  (replyTo/forwarded/edit/delete/star/pin/reactions/linkPreview); `GroupMember`+`ChatRole`,
+  group metadata, `ChatPermissions`, disappearing/wallpaper/block fields; `User` presence +
+  verified + blocked. **No further model migration planned before Phase 2** — M4b–M4e build on
+  this shape (see PROJECT_STATE §5).
+- **Repository + mock behavior** (extended `ChatRepository` — justified in interface KDoc:
+  messages/chats are one aggregate and one mock store): observeChat/observeMessages (hot)/
+  observeTyping(set), sendText with Sending→Sent→Delivered→Read pipeline, ~5% failures +
+  always-succeeding retry, auto-reply (≈40% of chats + **Pulse Assistant always**, D2), unread
+  increments only when the chat is not on screen, mutable drafts, typing pulses extended to the
+  conversation (D4).
+- **Seed history** (~441 messages across 16 chats, 20–45 each, multi-day spans, runs, system
+  rows, media placeholders, links, edited/deleted/reactions/unread tails; 17th contact
+  Pulse Assistant).
+- **S23 screen core**: `chat/{chatId}` stub replaced by ConversationScreen/ViewModel: ChatHeader
+  (back + other-chats unread badge, 40dp avatar, online/last-seen/typing/N-members status,
+  call icons, more menu w/ mute wired + placeholders), reverse LazyColumn with date pills,
+  unread divider (captured once on open), system rows, bubble runs (2dp gaps, 18/4dp radii,
+  group sender name + run avatar), text links, edited/deleted/failed-retry, content-type
+  placeholder bubbles, typing bubble, scroll FAB with unseen pill, basic Composer
+  (attachment/camera/mic placeholders, mic↔send crossfade, 6-line grow, drafts saved/restored).
+- **Design-token debt**: PulseIconSizes tiny/small; PulseSizes additions; `PulseFontWeights`;
+  `avatarInitialsFontSize`; bubble shape tokens + `PulseBubbleShape`; all component
+  typography/icon literals from the audit now use tokens.
+- Zero-warning clean build; docs updated (this file + PROJECT_STATE).
 
-## 2. PRD §6.5 gaps — M4 scope (S23–S40)
+## 2. PRD §6.5 gaps — remaining M4 scope (S23–S40)
 
-M4 ships the Conversation area: **S23 Chat Screen** (top bar w/ unread badge + call actions +
-menu, message list w/ date separators, unread divider, system messages, bubble grouping,
-message-type composables, failed-message retry, scroll-to-bottom FAB, long-press reactions +
-action sheet, multi-select, pinned banner), **S24 Attachment Sheet**, **S25 Media Picker/Editor**,
-**S26 Camera**, **S27 Contact Info**, **S28 Group Info**, **S29 Create/Edit Group**,
-**S30 Group Permissions**, **S31 Message Info**, **S32 Shared Media**, **S33 Media Viewer**,
-**S34 Forward Sheet**, **S35 Starred/Pinned**, **S36 In-Chat Search**, **S37 Wallpaper & Theme**,
-**S38 Disappearing Messages**, **S39 Create Poll**, **S40 Location Picker**.
+M4 = Conversation area. M4a covered the S23 **core**. Remaining:
 
-### Audit-found gaps in today's model/UI (need building in M4a/b)
-- Message attachments (image/video/file/voice/location/contact/poll metadata), reply-quote
-  anchor, forwarded+edited flags, reactions, system-message subtype. → `Message` model extension
-  (M4a, see PROJECT_STATE §5 gaps).
-- Chat extras: group participants beyond id list (role, addedBy, joinedAt), pinned messages,
-  disappearing timer, wallpaper/accent override, blocked/read-only state, draft persistence.
-  → `Chat`/new `GroupMember` model (M4a).
-- Composer component does not exist at all yet (PRD §7 lists `Composer`, `VoiceWaveform`,
-  `ReactionPill`, `DateSeparator`, `SystemMessage`, `UnreadDivider`, `MessageBubble` as library
-  components to build first) — these are pure new component work (M4a/M4b).
-- `User` lacks online/lastSeen/verified/blocked (needed for chat status line + Contact Info).
-- Media assets: PRD §9 requires bundled sample images + short audio voice notes (resource batch).
+- **S23 (rest, M4b)** — long-press quick reactions + action sheet (Reply/Forward/Copy/Pin/Star/
+  Edit/Info/Delete/Select), multi-select mode, reply/forward rendering (reply quote bar),
+  pinned-message banner, mention suggestions, blocked/read-only composer state, media bubbles
+  (image grids, video, voice playback waveform, file cards, location card, contact card, poll
+  UI, sticker panel) — attachments UI, camera, media picker (M4c).
+- **S24 Attachment Sheet**, **S25 Media Picker/Editor**, **S26 Camera** (D5: bundled sample
+  assets; real picker decisions pending), **S27 Contact Info**, **S28 Group Info**,
+  **S29 Create/Edit Group**, **S30 Group Permissions UI**, **S31 Message Info**,
+  **S32 Shared Media**, **S33 Media Viewer**, **S34 Forward Sheet**, **S35 Starred/Pinned**,
+  **S36 In-Chat Search**, **S37 Wallpaper & Theme**, **S38 Disappearing Messages**,
+  **S39 Create Poll**, **S40 Location Picker**.
+- Model gaps remaining: none blocking (v2 covers payloads); UI-state gaps only (e.g. composer
+  reply/edit/recording states, waveform rendering, reaction sheets, group admin surfaces).
 
-## 3. Non-M4 gaps recorded (NOT in scope for M4; listed so they are not re-found)
-- Calls tab / People tab / Settings tab = placeholders (M5/M6 per §6.6–6.8; S42+ S43+ S54+).
-- S70–S74 system screens incl. debug menu (S74 powers PRD §9 mock behaviors) — schedule with M5+.
-- Internet permission absent from manifest (fine Phase 1; add with Phase-2 networking only).
-- No Room, no Supabase (Phase 1 §9 persistence = Room; decision D1).
+## 3. Non-M4 gaps recorded (NOT in scope)
+- Calls tab / People tab / Settings tab placeholders (M5/M6 per §6.6–6.8).
+- S70–S74 system screens incl. debug menu (S74 powers PRD §9 mock triggers).
+- Internet permission absent (fine Phase 1; add with Phase-2 networking).
+- No Room (D1 resolved: in-memory through M4; Room additive later via suspend/Flow seams).
 - English-only strings + hardcoded time labels util (localization later).
 
-## 4. Recommended sub-milestones
+## 4. Recommended sub-milestones (updated after M4a)
 
-Suggested order (each independently buildable + shippable; gate each like M3):
-- **M4a — Conversation core**: domain model v2 (Message content types, Chat groups v2, GroupMember),
-  mock store rework (message sends with status progression + PRD §9 auto-replies w/ typing
-  indicator), chat screen S23 read-only rendering: bubble system (all message kinds incl. media
-  placeholders), date separators, system messages, unread divider, typing indicator, FAB + scroll.
-  Persistence decision D1 lands here (Room or keep in-memory; PRD says Room).
-- **M4b — Composer & messaging**: Composer all states (typing/reply/edit/recording/locked/blocked),
-  send flow w/ mock delay + auto-reply, reply bar + long-press action sheet, reactions row,
-  failed-message retry, pinned-message banner, draft persistence hookup, group typing/member avatars.
-- **M4c — Media & pickers**: S24 attachment sheet, S25 gallery picker (bundled sample images),
-  S26 camera screen (viewfinder placeholder + capture simulation), S27 Contact Info, S34 Forward
-  sheet, S32 Shared Media tab skeleton, S33 Media Viewer.
-- **M4d — Groups & info**: S28 Group Info, S29 create/edit group (participant picker = reuse S17/
-  search row patterns), S30 permissions UI (mock storage), S31 Message Info (delivered/read lists),
-  S36 in-chat search (reuse S20 query approach over chat messages).
-- **M4e — Chat personalization**: S37 wallpaper & accent picker (swatch row component), S38
-  disappearing messages, S39 poll (send + render + vote UI), S40 location placeholder card, S35
-  starred/pinned lists, settings hooks (mute/notification toggles wired to chat row state).
+- **M4a ✅ Conversation core** — model v2, message repo + mock pipeline + auto-reply + seed
+  history, S23 read-only conversation (header/list/chrome/bubbles/typing/FAB), basic composer
+  + drafts. _Done._
+- **M4b — Composer & messaging** (recommended next): full composer states (reply/edit bar,
+  recording UI, mentions), long-press action sheet + quick reactions, reaction rows under
+  bubbles, multi-select, reply send (already supported by the model: `replyToMessageId`),
+  pinned-message banner, failed-message retry polish, voice waveform rendering for incoming
+  Voice content.
+- **M4c — Media & pickers**: S24 attachment sheet, S25 picker over bundled sample images
+  (D5), S26 camera simulation, media bubbles (image grids/video/file cards) replacing
+  placeholders, S32/S33 shared media + viewer skeletons, S34 forward sheet (repo:
+  forward support flag already on the model).
+- **M4d — Groups & info**: S27 contact info (presence already in the model), S28 group info,
+  S29 create/edit group incl. member picker (reuse S17 row patterns), S30 permissions UI,
+  S31 message info (delivered/read lists), S36 in-chat search (reuse S20 query approach over
+  `observeMessages`).
+- **M4e — Chat personalization**: S37 wallpaper & accent (per-chat override already in model),
+  S38 disappearing messages, S39 poll create/render/vote, S40 location placeholder card,
+  S35 starred/pinned lists.
 
-## 5. Risks / watch-outs
-1. **Bubble geometry + grouping** (corner radii per first/middle/last run, 2 dp tight gap) is the
-   most fiddly pure-UI work in the app; prototype in a preview before wiring data.
-2. **Reverse LazyColumn** message list with auto-scroll + FAB unread badge + reply-jump highlight
-   needs `rememberLazyListState` experiments; keep list composables stateless w/ previews.
-3. **Long-press UX**: PRD wants quick-reaction bar AND action sheet from one press — plan timing/
-   gestures in M4b; consider `combinedClickable`.
-4. **Swipe actions on chat rows** already exist (M3) — M4 contact info etc. must not regress the
-   `SwipeableRow` interplay (selection vs swipe conflicts).
-5. **Mock determinism**: PRD §9 auto-reply (40% chats, 1.5–4 s) must live in the repository with a
-   deterministic seed for previews; S74 debug menu (later) will toggle it.
-6. **Media budget**: sample images/videos must be tiny (mock assets, single drawable reuse);
-   keep APK lean.
-7. Each M4 stage re-verifies: build warnings = 0, RTL/accessibility semantics on new components,
-   previews light+dark, no literal strings/colors, no architecture leaks.
+## 5. Risks / watch-outs (updated)
+1. Bubble geometry is done (radii/grouping); the next geometry risk is **reactions row + reply
+   quote rendering inside the same bubble column** — keep MessageBubble stateless.
+2. Reverse LazyColumn auto-scroll + FAB pill works; **animateItem** fade is in; placement slide
+   (8dp) is approximated — polish in M4b if needed.
+3. Long-press UX (reaction bar + action sheet from one press) needs gesture planning in M4b.
+4. Don't regress `SwipeableRow`/selection interplay when adding multi-select in chat (M4b).
+5. Mock determinism: keep per-chat auto-reply config and pools in the repository so tests and
+   the S74 debug menu (later) can toggle them.
+6. Media budget: bundled assets must stay tiny; placeholders already use `sample://` URIs.
+7. Each stage gate: build warnings = 0, RTL/accessibility semantics on new components,
+   light+dark previews, no literal strings/colors, no architecture leaks.
 
-## 6. Decisions needed before M4a (user)
-- **D1 — Message/chat persistence (PRD §9 mandates Room)**: Options: (a) adopt Room in M4a for
-  messages+chats and make mocks seed Room; (b) keep in-memory singleton store through M4 and defer
-  Room to Phase 2 with the Supabase swap; (c) Room now but Supabase later replaces anyway.
-  Recommendation: (b) keeps M4 velocity and the repository seam unchanged — Room adds no user
-  value before Phase 2 unless relaunch persistence of messages is explicitly desired in demos.
-- **D2 — Mock auto-reply cadence**: PRD says 40% of chats auto-reply 1.5–4 s w/ typing first. OK
-  to ship that default, or prefer replies only from a specific “bot” contact for demo clarity?
-- **D3 — M4a group support depth**: seed groups (4 exist) get real member lists/roles now, or
-  groups stay shallow until M4d (info/create/edit)? Affects model-v2 size in M4a.
-- **D4 — Typing indicator as simulated data** (already mock-pulsed in M3 rows): extend pulses to
-  the conversation screen (recommended) — confirm.
-- **D5 — Scope of camera/media pickers in M4c**: simulate with bundled assets vs. real photo
-  picker API (real picker = device dependency + permissions; PRD Phase 1 says bundled samples).
+## 6. Decisions (D1–D5 from the pre-M4 audit) — **ALL RESOLVED**
 
-_Verdict: proceed to M4a once D1–D5 are answered. No code changes required before starting; M4a
-builds on the current head cleanly._
+| # | Decision | Resolution |
+|---|---|---|
+| D1 | Message/chat persistence | ✅ **Stay in-memory through M4** (no Room now). All repo methods suspend/Flow; Room adds additively later. |
+| D2 | Auto-reply behavior | ✅ PRD default: ≈40% of chats auto-reply 1.5–4 s with typing 1–2 s first (chat set in `MockChatRepository.autoReplyChats`), **plus Pulse Assistant (`u-pulse`/`c-assistant`) always replies** for deterministic demos. |
+| D3 | Group members/roles | ✅ Modeled now (`Chat.members`, roles OWNER/ADMIN/MEMBER, joinedAt; createdBy/createdAt, description). Role-management UI deferred to M4d. Group chats render sender name, per-sender muted color (avatar-palette-derived) and small avatar on the last bubble of a run. |
+| D4 | Typing pulses in conversation | ✅ Typing is now per-chat `Set<String>`; idle pulses target `c-aria` and pre-reply typing targets the replier — both surface as the typing row + header "typing…" on the conversation screen. |
+| D5 | Camera/media scope | ✅ Media sending is M4c. M4a only added the `MessageContent` attachment model (image uris/dimensions, video duration, voice waveform, file size/mime, location, contact, poll, sticker) so M4c can use the real Android Photo Picker (`PickVisualMedia`) plus bundled sample assets. No camera work done. |
+
+_Verdict: M4a complete and clean. Proceed to M4b (composer & messaging) next — it builds
+directly on the current head with no model or repository changes required._

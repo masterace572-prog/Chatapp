@@ -2,7 +2,7 @@
 
 _Companion to `docs/PRD.md`. Kept current at every milestone hand-off; update this file when you change architecture, tokens, routes, or persistence._
 
-Last updated: 2026-09-04 (pre-M4 audit). Head: `575a11b` + audit commit(s).
+Last updated: 2026-09-04 (M4a). Head: `e8abc9c` + M4a commits.
 
 ---
 
@@ -17,21 +17,23 @@ com.pulse.messenger/
 ├── PulseApplication.kt      # Hilt app
 ├── ui/
 │   ├── theme/               # DESIGN TOKENS (see §2) - Color, Spacing, Shape, Type, Theme
-│   ├── icons/AppIcons.kt    # the ONLY icon source: 117 Lucide-derived ImageVectors
+│   ├── icons/AppIcons.kt    # the ONLY icon source: Lucide-derived ImageVectors
 │   ├── components/          # design-system components + previews (see §3)
-│   ├── util/                # MessagePresentation: TimeFormat, MessageLabels
+│   ├── util/                # MessagePresentation: TimeFormat, MessageLabels, ConversationFormat
 │   ├── navigation/          # Routes.kt (route consts) + PulseApp.kt (NavHost, auth router)
 │   └── screens/             # one feature package per screen family
 │       ├── splash/ auth/ welcome/ login/ signup/ otp/ forgot/ profile/
-│       ├── permissions/ friends/ success/          # M1–M2
-│       ├── main/            # S18 shell + stub screens (NewChat, Conversation)
+│       ├── permissions/ friends/ success/          # M1-M2
+│       ├── main/            # S18 shell + NewChat stub
 │       ├── chats/           # S19 list (+ ChatRowsPreviews)
 │       ├── search/          # S20 global search
 │       ├── archived/        # S21 archived chats
-│       └── folders/         # S22 chat folders editor
+│       ├── folders/         # S22 chat folders editor
+│       └── conversation/    # S23 chat screen (M4a)
 ├── domain/
-│   ├── model/               # ChatMessage.kt (Chat/ChatKind/Message/MessageType/MessageStatus),
-│   │                        # ChatSummary.kt, ChatFolder.kt, User.kt, Session.kt, Auth.kt
+│   ├── model/               # ChatMessage.kt (model v2: MessageContent sealed hierarchy,
+│   │                        # GroupMember/ChatRole, ChatPermissions), ChatSummary.kt,
+│   │                        # ChatFolder.kt, User.kt, Session.kt, Auth.kt
 │   └── repository/          # interfaces only: Auth, Chat, Contacts, Folders,
 │                            # SearchHistory, Settings, UserRepository
 ├── data/
@@ -45,11 +47,14 @@ com.pulse.messenger/
 - Screens never import `data/*`; ViewModels depend on `domain/repository` interfaces.
 - Repository interfaces are the swap point for Phase 2: `ui` consumes interfaces only.
 - **Swapping `data/mock` → Supabase requires zero UI changes.** All repository streams are
-  cold flows or StateFlow of domain models; `ChatSummary` (row aggregates incl. typing, drafts,
-  verified, media labels) is computed inside the repository. UI never joins data itself.
-  Only nuance: auth screens display repository-supplied error strings (`exception.message`);
-  a remote implementation must map failures to human text the same way (keep messages in the
-  data layer or return sealed errors later - existing call sites only consume the string).
+  hot StateFlows of domain models; `ChatSummary` (row aggregates incl. typing, drafts, verified,
+  media labels) is computed inside the repository. The conversation screen receives resolved
+  `Chat`, `Message`, typing-set and summary flows; the ViewModel joins them with the contacts
+  directory (same pattern the search VM uses) but never touches data-layer code.
+- Messages live on `ChatRepository` (not a separate MessageRepository): a conversation and its
+  messages are one aggregate — summaries derive from the last message, unread counts track the
+  message stream, and drafts edit what the list previews. The Phase-1 mock keeps both in one
+  singleton, so a split contract would fork a single source of truth.
 
 ## 2. Design system summary
 
@@ -58,81 +63,64 @@ colors/typography/spacing/radius. Tokens are **internal**; consume through the o
 
 | Token file | What it holds | How to consume |
 |---|---|---|
-| `Color.kt` | `PulseColors` light+dark palette (background, surface, surfaceVariant, border, textPrimary/Secondary/Tertiary, accent, accentContainer, onAccent*, success, warning, error, info, …), `AccentPresets` (6 ids), `AvatarTones` | `PulseTheme.colors.textSecondary` |
-| `Spacing.kt` | `PulseSpacing` (4/8 dp grid: xs=4…screen=20, xxxl=32…), `PulseIconSizes` (inline=20, default=24, feature=28), `PulseSizes` (minTouchTarget=48, buttonHeight=52, avatarChat=52, topBarHeight=56, inputHeight=56, dividerHairline=1, chatRowDividerInset=84, fabClearance=96) | `Modifier.padding(PulseSpacing.screen)` |
-| `Shape.kt` | `PulseShapes` (sm/md/lg/full radii, sheetTop) | `Modifier.clip(PulseShapes.full)` |
-| `Type.kt` | `PulseTypography` over bundled Inter (regular/medium/semibold `.otf` in `res/font`, license `licenses/Inter-LICENSE.txt`) | `MaterialTheme.typography.bodyMedium` |
+| `Color.kt` | `PulseColors` light+dark palette (+ `isDark` flag), `AccentPresets` (6 ids), `AvatarTones` (8 pairs), `senderToneTextColor()` (group sender names) | `PulseTheme.colors.textSecondary` |
+| `Spacing.kt` | `PulseSpacing` (tight=2 … huge=40, screen=20), `PulseIconSizes` (tiny=14, small=16, inline=20, default=24, feature=28), `PulseSizes` (buttonHeight 52, avatarChat 52, avatarHeader 40, avatarRun 24, minTouchTarget 48, topBar/inputHeight 56, dividerHairline 1, chatRowDividerInset 84, fabClearance 96, bubbleMetaIcon 14, unreadOverlayBadge 14, selectionCheck 22/CheckMark 13/stroke 2, sendCircle 40) | `Modifier.padding(PulseSpacing.screen)` |
+| `Shape.kt` | `PulseShapes` (xs…xl, full, sheetTop) + conversation chrome: bubbleRadius 18, bubbleTightRadius 4, composerRadius 24, `PulseBubbleShape(outgoing, firstInRun, lastInRun)` | `Modifier.clip(PulseShapes.full)` |
+| `Type.kt` | `PulseTypography` over bundled Inter; `PulseFontWeights` (Regular/Medium/SemiBold); `avatarInitialsFontSize(avatarSizeDp)` | `MaterialTheme.typography.bodyMedium` |
 | `Theme.kt` | `PulseTheme` composable + `PulseColors` accessor; **never** the M3 `MaterialTheme.colorScheme` defaults | wrap app in `PulseTheme(darkTheme, accentPreset)` |
 
 **Icons:** `AppIcons.*` only (117 stroke icons, single source, full multi-primitive geometry).
-No material-icons imports, no vector drawables, no emoji-as-icons anywhere in UI text.
-Zero gradients (`Brush.*`), zero default-Material palette colors, zero hardcoded `Color(0x…)`
-outside `Color.kt`/`Theme.kt` scrim/inverse values.
+No material-icons imports, no vector drawables, no emoji-as-icons anywhere in UI text (emoji
+inside message *content* is user data and fine). Zero gradients, zero default-Material palette
+colors, zero hardcoded `Color(0x…)` outside `Color.kt`/`Theme.kt`.
 
 **Example**
 ```kotlin
 @Composable
-fun DemoRow() {
+fun DemoBubble() {
     val c = PulseTheme.colors
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = PulseSpacing.screen, vertical = PulseSpacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(AppIcons.Pin, null, tint = c.textTertiary, modifier = Modifier.size(PulseIconSizes.inline))
-        Spacer(Modifier.width(PulseSpacing.md))
-        Text("Title", style = MaterialTheme.typography.titleMedium, color = c.textPrimary)
-    }
+    MessageBubble(message = myMessage)   // components own their chrome
 }
 ```
 
-**Documented exceptions (deliberate metrics, not grid spacing):** 2 dp text-line gaps inside
-list rows (typography leading), 84 dp avatar-column inset (now token `PulseSizes.chatRowDividerInset`),
-avatar 44 dp in search rows, skeleton bar heights 12–14 dp, badge offsets in `MainScreen`, divider
-inset/micro paddings in `ChatListItem` trailing glyphs (14/13/16/20/22 dp are glyph metrics with no
-token yet - M4 may add `PulseIconSizes.tiny`). Keep this list honest when you touch these files.
+**Documented exceptions (deliberate metrics, not grid spacing):** avatar letter fraction
+(tokenised via `avatarInitialsFontSize`), 2 dp run gaps (token `PulseSpacing.tight`), bubble max
+width 78% of the row (code-level constraint), structural metrics like country-flag badge
+40×28 and meter segment widths. Keep this list honest when you touch these files.
 
 ## 3. Component catalog (`ui/components/`)
 
 | Component (file) | Purpose | Key params |
 |---|---|---|
 | `AppTopBar` + `AppBackButton` (AppTopBar.kt) | Large/Medium/Compact top bar, hairline option | title, style, navigationIcon, actions |
-| `AppButton`, `AppIconButton` (AppButton.kt) | 52 dp CTA (Primary/Secondary/Tertiary/Destructive, loading, disabled); 48 dp icon button | text/icon, variant, loading, enabled, fillMaxWidth |
+| `ChatHeader` (ChatHeader.kt) | S23 conversation top bar: back + unread overlay badge, 40dp avatar, name/status line, voice/video/more, dropdown menu | title, statusText, status(Online/Typing/Group/Neutral), avatarSeed, otherUnread, onMenuAction |
+| `AppButton`, `AppIconButton` (AppButton.kt) | 52dp CTA (Primary/Secondary/Tertiary/Destructive, loading, disabled); 48dp icon button | text/icon, variant, loading, enabled, fillMaxWidth |
 | `AppTextField` (AppTextField.kt) | Themed input: label, placeholder, error, leading/trailing icons, password toggle | value, onValueChange, label, isError, isPassword |
 | `OtpInput` (OtpInput.kt) | 6-box code entry, auto-advance | onComplete, length, isError, resetSignal |
 | `AuthStepScaffold` (AuthStepScaffold.kt) | Auth screens: back + step progress + title + content + pinned CTA | steps, stepIndex, title, cta |
-| `Avatar` (+ group composite) (Avatar.kt) | Initials/photo circle 24–120 dp, online dot, group stack | name, avatarTone, size, isOnline, isGroup |
-| `ChatListItem` (ChatListItem.kt) | S19/S21 chat row: 52 dp avatar, preview, badges, ticks, selection | summary, onClick, onLongClick, selectionMode, selected |
-| `SwipeableRow` (SwipeableRow.kt) | Swipe actions container (snap-back, M3 SwipeToDismissBox) | startAction, endAction, enabled, content |
-| `SelectionCheck`, `DeliveryTicks` (ChatListItem.kt) | Multi-select circle; single/double ticks | selected/status |
-| `AppChip`, `Badge` (Badges.kt) | Filter chip w/ leading icon; count pill (muted variant) | label, selected; count, muted |
+| `Avatar` (+ group composite) (Avatar.kt) | Initials/photo circle 24–120dp, online dot, group stack | name, avatarTone, size, isOnline, isGroup |
+| `ChatListItem` + `SelectionCheck`, `DeliveryTicks` (ChatListItem.kt) | S19/S21 row incl. all badges/ticks; ticks now cover Sending(clock)/Failed(alert) | summary, onClick, onLongClick, selectionMode, selected |
+| `SwipeableRow` (SwipeableRow.kt) | Swipe actions container (snap-back) | startAction, endAction, enabled, content |
+| `MessageBubble` (MessageBubble.kt) | S23 bubble: text + tappable links, placeholders for media types, edited/deleted/failed/retry, run geometry, group names + run avatar | message, isFirstInRun/isLastInRun, senderName, senderNameColor, avatarSeed, onRetry |
+| `DateSeparator`, `UnreadDivider`, `SystemMessageRow`, `TypingIndicator` (ChatExtras.kt) | Conversation list chrome (day pill / "N unread" pill / centered system row / 3-dot pulse bubble) | label; senderName for typing |
+| `MessageComposer` (MessageComposer.kt) | Basic S23 composer: attachment + growing pill field (6 lines) + camera/mic when empty, crossfade to send circle | value, onValueChange, onSend, onAttachment/onCamera/onMic |
+| `AppChip`, `Badge`, `Tag` (Badges.kt) | Filter chip w/ leading icon; count pill; neutral micro-label | label, selected; count, muted |
 | `SearchBar` (SearchBar.kt) | Collapsed pill → expanded field with back | value, active, onActiveChange, placeholder |
-| `AppBottomSheet` (AppBottomSheet.kt) | Modal sheet, drag handle, lg radius | onDismissRequest, sheetState, content |
-| `CountryPickerSheet` (CountryPickerSheet.kt) | Searchable ISO countries (text badges, no flags) | onDismiss, onSelect |
+| `AppBottomSheet`, `CountryPickerSheet` (AppBottomSheet.kt) | Modal sheet, drag handle; searchable ISO picker | onDismissRequest, sheetState |
 | `AppCard`, `AppDivider` (AppCard.kt) | Surface card; hairline divider w/ inset | content; insetStart |
 | `AppDialog`, `ConfirmDialog` (AppDialog.kt) | Info dialog; destructive confirm | title/text/buttons |
 | `Controls`: `SegmentedControl`, `AppSwitch` (Controls.kt) | M3 segmented; themed switch | options/selected; checked |
 | `SettingsItems` (SettingsItems.kt) | Row/switch/radio settings rows | icon, title, checked… |
-| `States` (States.kt) | `EmptyState`, `ErrorState`, `SkeletonBox/Circle`, skeleton list rows | icon, title, subtitle, action; onRetry |
-| `SuccessScreen` (SuccessScreen.kt) | Full success w/ CTA (account/reset) | title, subtitle, buttonLabel, onButton |
-| `LogoMark` (LogoMark.kt) | Brand mark | size |
-| `PasswordStrength` (PasswordStrength.kt) | Meter + label | score |
-| `PermissionCard` (PermissionCard.kt) | S16 permission row | icon, title, reason, granted, onAllow |
+| `States` (States.kt) | `EmptyState`, `ErrorState`, `SkeletonBox/Circle` | icon, title, subtitle, action; onRetry |
+| `SuccessScreen`, `LogoMark`, `PasswordStrength`, `PermissionCard` | Misc shared | — |
 
-**Duplication findings:** no true duplicates (one chip = `AppChip`, one top bar = `AppTopBar`
-variants, one list row = `ChatListItem`). Watch items:
-1. `ChatsScreen` header row (title+search+chips) vs `AppTopBar` Large — kept separate because it hosts
-   collapsible search + chip row + more menu (a future `ChatTopBar` variant could unify; defer to M4b).
-2. `GlobalSearchScreen` header replicates an *expanded* `SearchBar` with clear button; acceptable
-   (different chrome: back/field/clear only), but M4 may refactor SearchBar to expose this mode.
-3. `SuccessScreen` vs `EmptyState` share layout DNA; both stay (different semantics).
-
-**Previews:** every component has light+dark `@Preview` pairs — M1 catalog in
-`ComponentsPreviews.kt`, M3 rows in `screens/chats/ChatRowsPreviews.kt`, audit gap-fill in
-`ui/components/ComponentShowcases.kt` (SwipeableRow, OtpInput, PasswordStrength, PermissionCard,
-SuccessScreen). Not previewed (documented reasons): `CountryPickerSheet` and `AuthStepScaffold`
-(interactive modals/IME scaffolding).
+**Previews:** every component has light+dark `@Preview` pairs. Hubs:
+`ComponentsPreviews.kt` (M1), `screens/chats/ChatRowsPreviews.kt` (M3 rows),
+`ComponentShowcases.kt` (audit gap-fill), **`ConversationPreviews.kt` (M4a: ChatHeader
+online/typing/group, MessageBubble outgoing run/incoming run + system row/placeholders,
+DateSeparator, UnreadDivider, TypingIndicator, Composer empty/typing/multiline, full
+`ConversationContent` with seeded history)**. Not previewed: `CountryPickerSheet`,
+`AuthStepScaffold` (interactive modals/IME scaffolding).
 
 ## 4. Navigation route table
 
@@ -140,77 +128,92 @@ SuccessScreen). Not previewed (documented reasons): `CountryPickerSheet` and `Au
 
 | Route | Screen | Status |
 |---|---|---|
-| `splash` | S01 Splash (routes by persisted session) | ✅ IMPLEMENTED |
-| `welcome` | S02 Welcome | ✅ |
-| `login/email` | S03 | ✅ |
-| `login/phone` | S03b | ✅ |
-| `login/password` | S04 | ✅ |
-| `otp` | S06/S11b OTP | ✅ |
-| `forgot/email` `forgot/inbox` `forgot/reset` `success/reset` | S07–S10 | ✅ |
-| `signup/email` `signup/password` | S11a/c | ✅ |
-| `profile/name` `profile/username` `profile/photo` `profile/bio` | S12–S15 | ✅ |
-| `permissions` | S16 | ✅ |
-| `find-friends` | S17 | ✅ |
-| `success/account` | S17 completion | ✅ |
-| `main` | S18 Main shell | ✅ tabs: Chats REAL; Calls/People/Settings = PLACEHOLDER |
+| `splash` | S01 Splash (routes by persisted session) | ✅ |
+| `welcome` `login/*` `otp` `forgot/*` `signup/*` `profile/*` `permissions` `find-friends` `success/*` | S02–S17 | ✅ |
+| `main` | S18 shell (Chats tab REAL; Calls/People/Settings placeholders) | ✅ |
 | `search` | S20 | ✅ |
 | `archived` | S21 | ✅ |
 | `folders` | S22 | ✅ |
-| `new-chat` | New chat | ⏳ PLACEHOLDER stub (M4) |
-| `chat/{chatId}` | Conversation | ⏳ PLACEHOLDER stub (M4 will replace) |
+| **`chat/{chatId}`** | **S23 conversation core (M4a)** | ✅ REAL — stub replaced |
+| `new-chat` | New chat | ⏳ stub (M4c/M4d flow) |
 
-**Back behavior:** system back inside `Main` is intercepted: non-Chats tab → Chats;
-multi-select active → clears selection; Chats idle → exits app. All other pushed screens pop to the
-tab shell.
+**Back behavior:** inside `Main`, back on a non-Chats tab → Chats; multi-select active → clears
+selection; Chats idle → exits app. The conversation screen pops back to the tab shell and its
+ViewModel release marks the chat closed (mock stops counting unread for it).
 
-## 5. Domain model summary
+## 5. Domain model summary (v2, M4a)
 
 | Model | Fields (current) |
 |---|---|
-| `User` | id, firstName, lastName, username, phone?, bio?, avatarSeed (displayName derived) |
-| `Chat` | id, kind(Direct/Group), title?, participantIds, avatarSeed, isArchived/Muted/Pinned, updatedAtMillis |
-| `ChatSummary` | row aggregate: chatId, kind, displayName, avatarSeed, peerFirstName, memberNames, participantCount, lastMessage?, lastSenderFirstName?, unreadCount, isArchived/Muted/Pinned/Typing, draft?, isVerified |
-| `Message` | id, chatId, senderId, type, text, sentAtMillis, status(Sending/Sent/Delivered/Read/Failed), isOutgoing |
-| `ChatFolder` | id, name, includeKinds(Set<ChatKind>), onlyUnread |
-| `SessionState` | Unknown / LoggedOut / LoggedIn(user); `ThemeMode` System/Light/Dark |
-| `GoogleAccount`, `SignInResult`, `CountryCode`, `OtpChannel` | auth support models |
+| `User` | id, firstName/lastName, username, phone?, bio?, avatarSeed, **isOnline, lastSeenAtMillis?, isVerified, isBlocked** |
+| `Chat` | id, kind(Direct/Group), title?, participantIds, **members: List<GroupMember(userId, role Owner/Admin/Member, joinedAtMillis)>**, description?, createdBy?, createdAtMillis?, avatarSeed, isArchived/Muted/Pinned, updatedAtMillis, **pinnedMessageIds, disappearingMessagesDurationSeconds?, wallpaperId?, isBlocked, permissions: ChatPermissions** (data only until M4d) |
+| `ChatSummary` | row aggregate (unchanged shape): chatId, displayName, avatarSeed, peerFirstName, memberNames, participantCount, lastMessage?, lastSenderFirstName?, unreadCount, flags, isTyping, draft?, isVerified |
+| `Message` | id, chatId, senderId, **content: MessageContent (sealed)**, sentAtMillis, status(Sending/Sent/Delivered/Read/Failed), isOutgoing, **replyToMessageId?, forwardedFromUserId?, isEdited, isDeleted, isStarred, isPinned, reactions: List<MessageReaction(emoji, userIds)>, linkPreview?** — convenience getters `type`/`text` |
+| `MessageContent` | sealed: Text(text), System(text), Image(uris, caption, w/h), Video(uri, duration, w/h, caption), Voice(durationSeconds, waveformSamples), File(name, sizeBytes, mime), Location(lat/lng, address), Contact(userId, displayName, phone?, username?), Poll(question, options, votes map, flags), Sticker(assetKey) — every type exists with payload data in M4a; only Text/System render fully |
+| `MessageType` | enum discriminant (Text…Sticker, System) used by lists/search/previews |
+| `ChatFolder` | id, name, includeKinds, onlyUnread (unchanged) |
+| `SessionState`, `GoogleAccount`, `SignInResult`, `CountryCode`, `OtpChannel` | auth support models (unchanged) |
 
-Gaps vs PRD §6.5/S23 (Message attachments/replies/reactions; Chat admins/pinned/disappearing/
-wallpaper/blocked/permissions; User online/lastSeen/verified/blocked/email): see
-**docs/M4_READINESS.md** — they are M4a work, deliberately not implemented here.
+Remaining S23+ gaps deferred to M4b–M4e are rendering/behavioral only (reactions UI, reply
+quotes, media bubbles, pinned banner, group management, message info); the **model supports all
+of them already** — no further model migration is planned before Phase 2.
 
 ## 6. Repository interfaces & mocks
 
 | Interface | Mock / impl | Backing |
 |---|---|---|
-| `AuthRepository` | `MockAuthRepository` | in-memory + **DataStore `pulse_session`** (session survives restart) |
-| `ChatRepository` | `MockChatRepository` (@Singleton) | in-memory `ChatState` store; typing pulses; seeded messages |
-| `ContactsRepository` | `MockContactsRepository` | SeedData contacts flow |
+| `AuthRepository` | `MockAuthRepository` | in-memory + DataStore `pulse_session` |
+| `ChatRepository` | `MockChatRepository` (@Singleton) | in-memory singleton: chat flags/unread/drafts + **live message store + typing sets + send pipeline + auto-replies** |
+| `ContactsRepository` | `MockContactsRepository` | SeedData contacts flow (17 incl. Pulse Assistant) |
 | `FoldersRepository` | `FoldersRepositoryImpl` | DataStore `pulse_folders` (JSON) |
 | `SearchHistoryRepository` | `SearchHistoryRepositoryImpl` | DataStore `pulse_search_history` (JSON) |
 | `SettingsRepository` | `SettingsRepositoryImpl` | DataStore `pulse_settings` (theme_mode, accent_preset_id) |
-| `UserRepository` | `MockUserRepository` | returns `User.Me`; **not consumed by UI yet** (reserved for M5/S54; wire to session user when the first consumer lands) |
+| `UserRepository` | `MockUserRepository` | returns `User.Me`; no UI consumer yet (M5/S54) |
 
-All bound in `di/RepositoryModule.kt` via `@Binds`; `@ApplicationScope` qualifier + coroutine
-module in `di/`.
+`ChatRepository` surface (interface only grows, never reshapes): list flows
+(`observeChatSummaries/ArchivedSummaries`, `observeAllMessages`), conversation surface
+(`observeChat(chatId)`, `observeMessages(chatId)` newest-last hot, `observeTyping(chatId):
+Flow<Set<String>>`, `sendText(chatId, text, replyToMessageId?)`, `retryMessage(messageId)`,
+`markChatRead(chatId)`, `setActiveConversation(chatId?)`, `setDraft(chatId, text)`), M3 actions
+(archive/pin/mute/markRead/markAllRead/deleteChats/refresh). All bound via `@Binds` in
+`di/RepositoryModule.kt`.
 
-## 7. Mock behaviors & seed data
+**Mock behaviors (PRD §9 + M4a D-decisions):**
+- Send pipeline: Sending → Sent (300–800 ms) → Delivered (+0.5–1.5 s) → Read (+1–3 s, only when
+  the chat is "online": peer online for directs, any member online for groups). ~5% of sends end
+  Failed (retry UI); `retryMessage` always succeeds.
+- Auto-reply (D2): ~40% of chats (`c-assistant`, `c-aria`, `c-noah`, `c-mira`, `c-design`,
+  `c-fam`) reply 1.5–4 s after a successful send from pool sentences; the sender's typing
+  indicator shows 1–2 s first. **Pulse Assistant (`u-pulse`, chat `c-assistant`) always
+  replies** for deterministic demos.
+- Unread accounting: incoming replies bump the chat's unread count only while the chat is not on
+  screen (`setActiveConversation`); opening the conversation marks it read once the unread
+  divider position was captured.
+- Drafts: mutable per chat; the chat list shows the "Draft:" prefix (M3), unsent composer text
+  survives leaving/re-entering a conversation (S23).
+- Idle typing pulses on `c-aria` (M3) keep lists + conversation alive (D4).
+- Session: persisted via DataStore `pulse_session` (splash routes LoggedIn → Main after restart).
 
-- Auth (PRD §9): valid email + password ≥ 8 chars succeeds; literal password `"wrong"` fails;
-  OTP `123456` succeeds else fails; Google picker always succeeds (existing →
-  `aarav.kapoor@gmail.com` → Main; others → profile setup). `Simulator.networkDelay()` = 300–800 ms,
-  `shortDelay()` = 120–260 ms.
-- Chats: 15 seeded chats (11 direct + 4 groups; archived `c-zara`, `c-tara`; muted `c-kabir`,
-  `c-lea`, `c-roadtrip`; pinned `c-noah`, `c-iva`; unread counts aria 3 / design 2 / roadtrip 5 /
-  sam 1 / run 2 / kabir 4; draft on `c-noah`; typing pulses on `c-aria` 12–24 s on / 7 s off).
-  33 messages total (1–4 per chat, mixed text/media captions, timestamps anchored to
-  `SeedData.BaseMillis` and offset to now at first use). 16 contacts (`u-aria`…`u-tara`), `me` =
-  User("me","Aarav","Kapoor","aaravk","+91 98110 90000","Building Pulse.",3).
-- Chat actions: archive/unarchive, pin, mute, mark read, delete, mark-all-read, pull-to-refresh —
-  all mutate the singleton store and emit updated summaries.
-- Session: persisted via DataStore so Splash routes LoggedIn → Main after restart.
-- NOT yet simulated (M4): send → delivery status progression, auto-replies (PRD §9: ~40% chats,
-  1.5–4 s, typing first), incoming message/call triggers (S74 debug menu).
+## 7. Seed data (`data/mock/SeedData.kt`, M4a)
+
+- **People:** 17 contacts (`u-aria`…`u-tara` + **`u-pulse` "Pulse Assistant"**, verified, always
+  online) + `me` (Aarav Kapoor). Presence: `u-aria` and `u-pulse` online; everyone else carries a
+  `lastSeenAtMillis`.
+- **Chats:** 16 (12 direct + 4 groups: Design Guild me-owner; Roadtrip Crew dev-owned; Weekend
+  Plans me-owner; Morning Runners iva-owned) with roles (`members`), descriptions, createdAt.
+  Flags: archived `c-zara`/`c-tara`, muted `c-kabir`/`c-lea`/`c-roadtrip`, pinned `c-noah`/
+  `c-iva`; unread: aria 3 / design 2 / roadtrip 5 / sam 1 / run 2 / kabir 4; draft on `c-noah`;
+  typing sim on `c-aria`.
+- **Messages: ~441 generated per chat (20–45 each)** spanning ≥2 days (night gaps) so date
+  separators show Today / Yesterday / weekday / full date. Deterministic per chat (fixed seed):
+  grouped sender runs (2 min window), system rows ("You created the group", "X joined" with real
+  actor ids), links, edited + deleted examples, reactions data, and content-type placeholders
+  (image/video/voice/file/location/contact/poll/sticker) with realistic payload fields. Unread
+  tails are peer-sent by construction; recent chats end minutes before launch, archived chats
+  end days ago.
+- M3 list/search consumers read the same store: preview text derives from `content.text` with
+  `MessageLabels.typeLabel` icons for non-text, search indexes Text content (system rows and
+  empty payloads excluded), delivery ticks/labels unchanged.
 
 ## 8. Persistence summary
 
@@ -219,39 +222,45 @@ module in `di/`.
 | DataStore `pulse_settings` | theme_mode, accent_preset_id | ✅ |
 | DataStore `pulse_folders` | folders_json (user chat folders) | ✅ |
 | DataStore `pulse_search_history` | recent_json | ✅ |
-| DataStore `pulse_session` | session_json (logged-in user) | ✅ (added in audit) |
-| Room | — (none; PRD §9 mandates Room for messages/chats → **M4a decision**, see readiness doc) | — |
-| In-memory mocks | chat flags, unread counts, typing, contacts | ❌ reset each launch (Phase-1 mock store; Room or Supabase replaces in M4a/Phase 2) |
+| DataStore `pulse_session` | session_json (logged-in user) | ✅ |
+| Room | — (none; PRD §9 mandates Room for messages/chats → **decision D1 (resolved): stay in-memory through M4**; repository methods are all suspend/Flow so Room can be added additively) | — |
+| In-memory mock store | chats, flags, unread, drafts, typing, message history + live sends | ❌ reset each launch (accepted; Phase-1 mock store) |
 
 ## 9. Milestone status
 
 | Milestone | Scope | Status | Notes |
 |---|---|---|---|
-| M1 | Theme/tokens/icons/components foundation, splash | ✅ `334d292` | |
-| M2 | Onboarding & auth S01–S17 | ✅ `d1b0be7` | icon-set regeneration fix `5bdc993` |
-| M3 | Main shell & chats S18–S22 | ✅ `bae7bdc`→`575a11b` | |
-| M4 | Conversation S23–S40 | ⏳ PENDING | plan in `docs/M4_READINESS.md` |
+| M1 | Foundation: tokens/components/nav skeleton | ✅ | |
+| M2 | Onboarding & auth S01–S17 | ✅ | |
+| M3 | Main shell & chats S18–S22 | ✅ | |
+| Pre-M4 audit | Consolidation + docs + readiness | ✅ | commits `895241f`, `e8abc9c` |
+| **M4a** | **Conversation core: domain model v2, message repo + mock behaviors + seed history, S23 chat screen (header/list/bubbles/composer basic)** | ✅ | this update |
+| M4b–M4e | Composer full states, reactions/replies, media bubbles, groups info, personalization | ⏳ | plan in `docs/M4_READINESS.md` |
+| M5–M7 | Calls, People, Settings, Misc screens | ⏳ | |
 
-**Known limitations (accepted):** Calls/People/Settings tabs and several More-menu items are honest
-placeholders (later milestones); logout exists in `AuthRepository`/`AuthViewModel` but has no UI
-until Settings (S68, M6+); no Room; mock state resets between launches; chat list filters do not
-persist; time labels & preview strings are English-only; Day/time labels ("Yesterday") and
-`MessageLabels` are English util constants.
+**Known limitations (accepted):** M4a renders media/voice/location/contact/poll/sticker content
+as labelled placeholder bubbles (M4b/M4c replace); long-press actions/reactions/reply/multi-
+select/pinned banner are M4b; group role management UI is M4d; in-chat search/forward/etc are
+later; mock state resets between launches; time labels & preview strings are English-only;
+Calls/People/Settings tabs remain placeholders; composer Enter = newline (Enter-sends is an M6
+setting).
 
 ## 10. How to add a new screen (checklist)
 
-1. Put it in `ui/screens/<feature>/`; one file per screen unless it grows past ~400 lines — then split
+1. Put it in `ui/screens/<feature>/`; one file per screen unless it grows past ~400 lines — split
    into private composable sections or subcomponents (screen file guideline).
 2. Create `UiState` data class + `@HiltViewModel` exposing `StateFlow<UiState>`; collect with
    `collectAsStateWithLifecycle()`. No business logic in composables.
-3. Add repository interface method(s) in `domain/repository` first; implement in the matching mock/
-   local impl; bind via `di/RepositoryModule` if new.
+3. Add repository interface method(s) in `domain/repository` first; implement in the matching
+   mock/local impl; bind via `di/RepositoryModule` if new.
 4. Add route consts in `ui/navigation/Routes.kt`; register `composable(...)` in `PulseApp.kt`;
-   wire callbacks/back handling from the host screen.
-5. Use ONLY tokens: `PulseTheme.colors`, `MaterialTheme.typography`, `PulseSpacing/IconSizes/Sizes`,
-   `PulseShapes`, `AppIcons`. No gradients, no emoji icons, no `Color(0x…)` in screens.
-6. Centralize every user-visible string in `res/values/strings.xml` (no literals; plurals allowed
-   with %d; watch apostrophes).
+   wire callbacks/back handling from the host screen. ViewModels that need route args take
+   `SavedStateHandle`.
+5. Use ONLY tokens: `PulseTheme.colors`, `MaterialTheme.typography`, `PulseSpacing/IconSizes/
+   Sizes`, `PulseShapes`/`PulseBubbleShape`, `PulseFontWeights`, `AppIcons`. No gradients, no
+   emoji icons, no `Color(0x…)` in screens.
+6. Centralize every user-visible string in `res/values/strings.xml` (no literals; plurals with
+   %d where quantity varies).
 7. Reuse components from §3 before writing new ones; if new, add light+dark `@Preview`.
 8. Icons on tappables get `contentDescription`; decorative icons get `null`.
 9. Add `@Preview` (light + dark) for the key states of reusable parts.
