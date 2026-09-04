@@ -74,4 +74,7 @@ object PulseSizes {
 
     /** Fixed 16:9 preview height in the media review sheet (M4c S25). */
     val videoPreviewHeight = 220.dp
+
+    /** Center play/pause control in the media viewer (M4c S33). */
+    val playerButton = 72.dp
 }

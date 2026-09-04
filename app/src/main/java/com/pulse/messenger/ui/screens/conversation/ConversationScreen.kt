@@ -98,6 +98,7 @@ import com.pulse.messenger.ui.components.MessageBubble
 import com.pulse.messenger.ui.components.MessageComposer
 import com.pulse.messenger.ui.components.MediaDraft
 import com.pulse.messenger.ui.components.MediaItemDraft
+import com.pulse.messenger.ui.components.MediaViewerOverlay
 import com.pulse.messenger.ui.components.MediaSendSheet
 import com.pulse.messenger.ui.components.MultiSelectTopBar
 import com.pulse.messenger.ui.components.PinnedBanner
@@ -106,6 +107,8 @@ import com.pulse.messenger.ui.components.QuickReactionBar
 import com.pulse.messenger.ui.components.ReactorUi
 import com.pulse.messenger.ui.components.RecentMediaItem
 import com.pulse.messenger.ui.components.ReactorsSheetContent
+import com.pulse.messenger.ui.components.ViewerMediaItem
+import com.pulse.messenger.ui.components.buildViewerMedia
 import com.pulse.messenger.ui.components.SelectionCheck
 import com.pulse.messenger.ui.components.SystemMessageRow
 import com.pulse.messenger.ui.components.TypingIndicator
@@ -121,6 +124,9 @@ import com.pulse.messenger.ui.util.MessageLabels
 import kotlinx.coroutines.launch
 
 /** User events the screen forwards to the ViewModel. */
+/** Open media-viewer session: chronological media + page to start on (M4c S33). */
+private data class ViewerSession(val items: List<ViewerMediaItem>, val index: Int)
+
 data class ConversationCallbacks(
     val onBack: () -> Unit = {},
     val onRetry: (String) -> Unit = {},
@@ -284,6 +290,7 @@ internal fun ConversationContent(
     var mediaDraft by remember { mutableStateOf<MediaDraft?>(null) }
     var pendingAdd by remember { mutableStateOf(false) }
     var recentMedia by remember { mutableStateOf<List<RecentMediaItem>>(emptyList()) }
+    var viewerSession by remember { mutableStateOf<ViewerSession?>(null) }
 
     val chat = state.chat
     val overlayMessage = state.actionMessageId?.let { id ->
@@ -412,6 +419,19 @@ internal fun ConversationContent(
             listOf(MediaItemDraft(item.uri, item.isVideo, item.durationSeconds)),
         )
         showTray = false
+    }
+
+    fun openMediaViewer(messageId: String, videoOnly: Boolean) {
+        val items = buildViewerMedia(
+            state.rows.filterIsInstance<ConversationRow.MessageItem>(),
+            state.users.mapValues { it.value.displayName },
+        )
+        val index = if (videoOnly) {
+            items.indexOfFirst { it.messageId == messageId && it.isVideo }
+        } else {
+            items.indexOfFirst { it.messageId == messageId && !it.isVideo }
+        }
+        if (index >= 0) viewerSession = ViewerSession(items, index)
     }
 
     fun doForward(ids: List<String>) {
@@ -583,6 +603,8 @@ internal fun ConversationContent(
                         if (state.selectionMode) onVm?.toggleSelect?.invoke(id)
                     },
                     onReactionLongPress = { id, emoji -> reactorsTarget = id to emoji },
+                    onImageTap = { id, _ -> openMediaViewer(id, videoOnly = false) },
+                    onVideoTap = { id -> openMediaViewer(id, videoOnly = true) },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -946,6 +968,28 @@ internal fun ConversationContent(
                 },
             )
         }
+
+        // ---- M4c S33: fullscreen media viewer (images/videos of this chat). ----
+        viewerSession?.let { session ->
+            MediaViewerOverlay(
+                items = session.items,
+                initialIndex = session.index,
+                onClose = { viewerSession = null },
+                onForward = { id ->
+                    viewerSession = null
+                    doForward(listOf(id))
+                },
+                onDelete = { id ->
+                    viewerSession = null
+                    doDelete(listOf(id))
+                },
+                onInfo = {
+                    viewerSession = null
+                    toastComingSoon(context, R.string.conversation_action_info)
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 
@@ -1163,6 +1207,8 @@ private fun ConversationList(
     onLongPress: (String) -> Unit,
     onTap: (String) -> Unit,
     onReactionLongPress: (String, String) -> Unit = { _: String, _: String -> },
+    onImageTap: (String, Int) -> Unit = { _: String, _: Int -> },
+    onVideoTap: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val c = PulseTheme.colors
@@ -1315,6 +1361,8 @@ private fun ConversationList(
                                         } else {
                                             null
                                         },
+                                        onImageTap = { index -> onImageTap(message.id, index) },
+                                        onVideoTap = { onVideoTap(message.id) },
                                     )
                                 }
                                 if (state.selectionMode) {

@@ -848,3 +848,40 @@ private fun M4cCameraSimPreview() {
         )
     }
 }
+
+@Preview(name = "M4c · Media viewer (light)", showBackground = true, widthDp = 400, heightDp = 700)
+@Preview(name = "M4c · Media viewer (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400, heightDp = 700)
+@Composable
+private fun M4cMediaViewerPreview() {
+    PreviewHost {
+        val nowMs = System.currentTimeMillis()
+        MediaViewerOverlay(
+            items = listOf(
+                ViewerMediaItem(
+                    messageId = "m4c-v1",
+                    uri = "sample://photos/photo_hills.jpg",
+                    isVideo = false,
+                    durationSeconds = 0,
+                    caption = "Sunrise over the ridge",
+                    senderName = "Aria Sharma",
+                    sentAtMillis = nowMs - 3_600_000L,
+                ),
+                ViewerMediaItem(
+                    messageId = "m4c-v2",
+                    uri = "sample://photos/photo_beach.jpg",
+                    isVideo = false,
+                    durationSeconds = 0,
+                    caption = "",
+                    senderName = "Aarav Kapoor",
+                    sentAtMillis = nowMs - 1_800_000L,
+                ),
+            ),
+            initialIndex = 0,
+            onClose = {},
+            onForward = {},
+            onDelete = {},
+            onInfo = {},
+            modifier = Modifier.fillMaxWidth().height(700.dp),
+        )
+    }
+}

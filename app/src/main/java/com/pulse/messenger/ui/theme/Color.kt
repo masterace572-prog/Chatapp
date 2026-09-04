@@ -115,6 +115,8 @@ data class PulseColors(
     val mediaScrim: Color,
     /** Content on [mediaScrim] overlays. */
     val onMediaScrim: Color,
+    /** Opaque near-black behind the fullscreen media viewer (M4c S33). */
+    val viewerBackground: Color,
     /** Muted file-type tile tints (icon uses [onFile]). */
     val filePdf: Color,
     val fileDoc: Color,
@@ -152,6 +154,7 @@ private fun buildPulseColors(
     scrim: Color,
     mediaScrim: Color,
     onMediaScrim: Color,
+    viewerBackground: Color,
     filePdf: Color,
     fileDoc: Color,
     fileSheet: Color,
@@ -194,6 +197,7 @@ private fun buildPulseColors(
         scrim = scrim,
         mediaScrim = mediaScrim,
         onMediaScrim = onMediaScrim,
+        viewerBackground = viewerBackground,
         filePdf = filePdf,
         fileDoc = fileDoc,
         fileSheet = fileSheet,
@@ -236,6 +240,7 @@ internal fun lightPulseColors(accent: AccentPreset): PulseColors = buildPulseCol
     scrim = LightScrim,
     mediaScrim = LightMediaScrim,
     onMediaScrim = LightOnMedia,
+    viewerBackground = Color(0xFF000000), // fullscreen viewer is black in both themes
     filePdf = LightFilePdf,
     fileDoc = LightFileDoc,
     fileSheet = LightFileSheet,
@@ -265,6 +270,7 @@ internal fun darkPulseColors(accent: AccentPreset): PulseColors = buildPulseColo
     scrim = DarkScrim,
     mediaScrim = DarkMediaScrim,
     onMediaScrim = DarkOnMedia,
+    viewerBackground = Color(0xFF000000), // fullscreen viewer is black in both themes
     filePdf = DarkFilePdf,
     fileDoc = DarkFileDoc,
     fileSheet = DarkFileSheet,

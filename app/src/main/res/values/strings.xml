@@ -344,6 +344,8 @@
     <string name="conversation_camera_shutter_cd">Capture</string>
     <string name="conversation_camera_recording">Recording</string>
     <string name="conversation_camera_video_too_short">Hold a little longer to record a video</string>
+    <string name="conversation_viewer_close_cd">Close</string>
+    <string name="conversation_media_share_cd">Share</string>
     <string name="conversation_camera_timer">%1$02d:%2$02d</string>
 
     <!-- M4b: reply / edit bars -->
