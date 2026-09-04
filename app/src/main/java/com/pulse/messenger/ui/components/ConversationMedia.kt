@@ -108,6 +108,7 @@ enum class AttachmentTile {
     Camera,
     Gallery,
     Document,
+    Audio,
     Poll,
     Location,
     Contact,
@@ -117,6 +118,7 @@ internal fun attachmentTileIcon(tile: AttachmentTile): ImageVector = when (tile)
     AttachmentTile.Camera -> AppIcons.Camera
     AttachmentTile.Gallery -> AppIcons.Images
     AttachmentTile.Document -> AppIcons.FileText
+    AttachmentTile.Audio -> AppIcons.FileAudio
     AttachmentTile.Poll -> AppIcons.BarChart
     AttachmentTile.Location -> AppIcons.MapPin
     AttachmentTile.Contact -> AppIcons.UserPlus
@@ -126,6 +128,7 @@ internal fun attachmentTileLabel(tile: AttachmentTile): Int = when (tile) {
     AttachmentTile.Camera -> R.string.conversation_attach_camera
     AttachmentTile.Gallery -> R.string.conversation_attach_gallery
     AttachmentTile.Document -> R.string.conversation_attach_document
+    AttachmentTile.Audio -> R.string.conversation_attach_audio
     AttachmentTile.Poll -> R.string.conversation_attach_poll
     AttachmentTile.Location -> R.string.conversation_attach_location
     AttachmentTile.Contact -> R.string.conversation_attach_contact

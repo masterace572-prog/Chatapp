@@ -70,10 +70,10 @@ import com.pulse.messenger.ui.theme.PulseShapes
 import com.pulse.messenger.ui.theme.PulseSpacing
 import com.pulse.messenger.ui.theme.PulseTheme
 import com.pulse.messenger.ui.screens.conversation.ConversationRow
+import com.pulse.messenger.ui.util.CacheFiles
 import com.pulse.messenger.ui.util.ConversationFormat
 import com.pulse.messenger.ui.util.SampleMedia
 import kotlinx.coroutines.delay
-import java.io.File
 
 /* =====================================================================
  * M4c S33 - Fullscreen media viewer: black immersive surface over the
@@ -543,11 +543,11 @@ private fun shareViewerItem(context: Context, item: ViewerMediaItem) {
     val uri = when {
         item.isVideo && item.uri.startsWith("sample://") -> {
             val res = SampleMedia.videoRawRes(item.uri)
-            copyRawToCache(context, res, "shared", "pulse_video_${item.messageId}.mp4")
+            CacheFiles.exportRaw(context, res, "shared", "pulse_video_${item.messageId}.mp4")
         }
         !item.isVideo && item.uri.startsWith("sample://") -> {
             val res = SampleMedia.photoRes(item.uri)
-            copyRawToCache(context, res, "shared", "pulse_photo_${item.messageId}.jpg")
+            CacheFiles.exportRaw(context, res, "shared", "pulse_photo_${item.messageId}.jpg")
         }
         else -> null
     }
@@ -565,21 +565,4 @@ private fun shareViewerItem(context: Context, item: ViewerMediaItem) {
         }
         context.startActivity(Intent.createChooser(intent, null))
     }
-}
-
-/** Copies a bundled raw/drawable resource into the FileProvider cache dir. */
-private fun copyRawToCache(context: Context, resId: Int?, dir: String, name: String): Uri? {
-    if (resId == null) return null
-    val target = File(File(context.cacheDir, dir), name)
-    return runCatching {
-        target.parentFile?.mkdirs()
-        context.resources.openRawResource(resId).use { input ->
-            target.outputStream().use { output -> input.copyTo(output) }
-        }
-        androidx.core.content.FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.pulsefiles",
-            target,
-        )
-    }.getOrNull()
 }

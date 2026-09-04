@@ -312,7 +312,6 @@
     <string name="conversation_file_type_archive">Archive</string>
     <string name="conversation_file_type_audio">Audio</string>
     <string name="conversation_file_type_file">File</string>
-    <string name="conversation_file_open_cd">Open file</string>
     <string name="conversation_link_site">Link</string>
     <string name="conversation_react_cd">React</string>
     <string name="conversation_reactions_title">Reactions</string>
@@ -380,6 +379,12 @@
     <string name="conversation_contact_share_subtitle">Tap a contact to share their card in this chat.</string>
     <string name="conversation_contact_share_cd">Share contact</string>
     <string name="conversation_contact_shared">Contact shared</string>
+    <!-- M4c: SAF documents and audio sent as FILE -->
+    <string name="conversation_attach_audio">Audio</string>
+    <string name="conversation_document_sent">Document sent</string>
+    <string name="conversation_audio_sent">Audio sent</string>
+    <string name="conversation_file_open_error">This file can\'t be opened</string>
+    <string name="conversation_file_open_cd">Open file</string>
     <string name="conversation_location_map_cd">Map preview</string>
     <string name="conversation_location_place_cd">Select place</string>
     <string name="conversation_poll_created">Poll created</string>

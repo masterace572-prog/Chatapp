@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -122,8 +123,10 @@ import com.pulse.messenger.ui.theme.PulseShapes
 import com.pulse.messenger.ui.theme.PulseSpacing
 import com.pulse.messenger.ui.theme.PulseTheme
 import com.pulse.messenger.ui.theme.senderToneTextColor
+import com.pulse.messenger.ui.util.CacheFiles
 import com.pulse.messenger.ui.util.ConversationFormat
 import com.pulse.messenger.ui.util.MessageLabels
+import com.pulse.messenger.ui.util.SampleMedia
 import kotlinx.coroutines.launch
 
 /** User events the screen forwards to the ViewModel. */
@@ -210,6 +213,7 @@ fun ConversationScreen(
             retractVote = vm::retractVote,
             sendLocation = vm::sendLocation,
             sendContact = vm::sendContact,
+            sendFile = vm::sendFile,
             toggleReaction = vm::toggleReaction,
             toggleStar = vm::toggleStar,
             pin = vm::pinMessage,
@@ -245,6 +249,7 @@ internal class VmBridge(
     val retractVote: (String) -> Unit,
     val sendLocation: (Double, Double, String, Boolean, Long?) -> Unit,
     val sendContact: (User) -> Unit,
+    val sendFile: (String, String, Long, String) -> Unit,
     val toggleReaction: (String, String) -> Unit,
     val toggleStar: (String) -> Unit,
     val pin: (String) -> Unit,
@@ -399,6 +404,111 @@ internal fun ConversationContent(
         )
     }
 
+    // ---- SAF documents & audio (M4c): OpenDocument + persistable grants. ----
+    fun persistUriGrant(uri: Uri) {
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }
+        }
+    }
+
+    fun queryDocumentInfo(uri: Uri): Triple<String, Long, String> {
+        val resolver = context.contentResolver
+        var name: String? = null
+        var size = -1L
+        runCatching {
+            resolver.query(
+                uri,
+                arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
+                null,
+                null,
+                null,
+            )?.use { c ->
+                if (c.moveToFirst()) {
+                    val nIdx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    val sIdx = c.getColumnIndex(OpenableColumns.SIZE)
+                    if (nIdx >= 0) name = c.getString(nIdx)
+                    if (sIdx >= 0 && !c.isNull(sIdx)) size = c.getLong(sIdx)
+                }
+            }
+        }
+        val mime = runCatching { resolver.getType(uri) }.getOrNull()
+            ?: "application/octet-stream"
+        return Triple(
+            name?.takeIf { it.isNotBlank() } ?: uri.lastPathSegment ?: "file",
+            size.coerceAtLeast(0L),
+            mime,
+        )
+    }
+
+    fun sendOpenedDocument(uri: Uri, audio: Boolean) {
+        val (name, size, mime) = queryDocumentInfo(uri)
+        onVm?.sendFile?.invoke(uri.toString(), name, size, mime)
+        snack(
+            context.getString(
+                if (audio) R.string.conversation_audio_sent
+                else R.string.conversation_document_sent,
+            ),
+        )
+    }
+
+    val docLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        persistUriGrant(uri)
+        sendOpenedDocument(uri, audio = false)
+    }
+    val audioLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        persistUriGrant(uri)
+        sendOpenedDocument(uri, audio = true)
+    }
+
+    /** Opens a sent file with ACTION_VIEW (bundled ones via cache + provider). */
+    fun openMessageFile(messageId: String) {
+        val msg = rowMessageOf(state, messageId) ?: return
+        val file = msg.content as? MessageContent.File ?: return
+        val uri = if (SampleMedia.isBundledFile(file.uri)) {
+            CacheFiles.exportRaw(
+                context,
+                SampleMedia.fileRawRes(file.uri),
+                "shared",
+                file.name.substringAfterLast('/'),
+            )
+        } else {
+            Uri.parse(file.uri)
+        }
+        if (uri == null) {
+            Toast.makeText(
+                context,
+                context.getString(R.string.conversation_file_open_error),
+                Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        runCatching {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, file.mimeType.ifBlank { "*/*" })
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                },
+            )
+        }.onFailure {
+            Toast.makeText(
+                context,
+                context.getString(R.string.conversation_file_open_error),
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+
     fun openCamera() {
         cameraOpen = true
         showTray = false
@@ -437,6 +547,14 @@ internal fun ConversationContent(
             AttachmentTile.Contact -> {
                 showTray = false
                 contactShareOpen = true
+            }
+            AttachmentTile.Document -> {
+                showTray = false
+                docLauncher.launch(arrayOf("*/*"))
+            }
+            AttachmentTile.Audio -> {
+                showTray = false
+                audioLauncher.launch(arrayOf("audio/*"))
             }
             else -> toastComingSoon(context, attachmentTileLabel(tile))
         }
@@ -644,6 +762,7 @@ internal fun ConversationContent(
                     onVideoTap = { id -> openMediaViewer(id, videoOnly = true) },
                     onPollVote = { id, indexes -> onVm?.votePoll?.invoke(id, indexes) },
                     onPollRetract = { id -> onVm?.retractVote?.invoke(id) },
+                    onFileTap = { id -> openMessageFile(id) },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -767,6 +886,7 @@ internal fun ConversationContent(
                                 },
                                 onPollVote = { indexes -> onVm?.votePoll?.invoke(rowMessage.id, indexes) },
                                 onPollRetract = { onVm?.retractVote?.invoke(rowMessage.id) },
+                                onFileTap = { openMessageFile(rowMessage.id) },
                                 scale = 1.02f,
                             )
                         }
@@ -1107,6 +1227,7 @@ private fun MessageBubbleReplica(
     scale: Float,
     onPollVote: ((List<Int>) -> Unit)? = null,
     onPollRetract: (() -> Unit)? = null,
+    onFileTap: (() -> Unit)? = null,
 ) {
     val lift = remember { androidx.compose.animation.core.Animatable(1f) }
     LaunchedEffect(Unit) {
@@ -1130,6 +1251,7 @@ private fun MessageBubbleReplica(
         onVoiceToggle = onVoiceToggle,
         onPollVote = onPollVote,
         onPollRetract = onPollRetract,
+        onFileTap = onFileTap,
     )
 }
 
@@ -1318,6 +1440,7 @@ private fun ConversationList(
     onVideoTap: (String) -> Unit = {},
     onPollVote: (String, List<Int>) -> Unit = { _: String, _: List<Int> -> },
     onPollRetract: (String) -> Unit = {},
+    onFileTap: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val c = PulseTheme.colors
@@ -1474,6 +1597,7 @@ private fun ConversationList(
                                         onVideoTap = { onVideoTap(message.id) },
                                         onPollVote = { idx -> onPollVote(message.id, idx) },
                                         onPollRetract = { onPollRetract(message.id) },
+                                        onFileTap = { onFileTap(message.id) },
                                     )
                                 }
                                 if (state.selectionMode) {

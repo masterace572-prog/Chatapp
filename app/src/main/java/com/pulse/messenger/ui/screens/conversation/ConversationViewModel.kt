@@ -587,6 +587,25 @@ class ConversationViewModel @Inject constructor(
         }
     }
 
+    /** Sends a SAF-opened document/audio as a FILE message (uri persisted). */
+    fun sendFile(uri: String, name: String, sizeBytes: Long, mimeType: String) {
+        val replying = replyId.value
+        replyId.value = null
+        editId.value = null
+        draftText.value = ""
+        unreadMarker.value = 0
+        viewModelScope.launch {
+            chatRepository.sendFile(
+                chatId,
+                uri = uri,
+                name = name,
+                sizeBytes = sizeBytes,
+                mimeType = mimeType,
+                replyToMessageId = replying,
+            )
+        }
+    }
+
     /** Sends a static or live location card (mock coordinates). */
     fun sendLocation(
         latitude: Double,
