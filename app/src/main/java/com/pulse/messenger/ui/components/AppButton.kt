@@ -56,6 +56,8 @@ fun AppButton(
     modifier: Modifier = Modifier,
     variant: AppButtonVariant = AppButtonVariant.Primary,
     leadingIcon: ImageVector? = null,
+    /** Custom leading element rendered untinted (e.g. the multi-colour Google G). */
+    leadingContent: (@Composable () -> Unit)? = null,
     loading: Boolean = false,
     enabled: Boolean = true,
     fillMaxWidth: Boolean = true,
@@ -108,6 +110,14 @@ fun AppButton(
                         color = content,
                         strokeWidth = 2.dp,
                     )
+                }
+                leadingContent != null -> {
+                    Box(
+                        Modifier
+                            .size(PulseIconSizes.inline)
+                            .padding(end = 0.dp),
+                    ) { leadingContent() }
+                    Spacer(Modifier.width(PulseSpacing.sm))
                 }
                 leadingIcon != null -> {
                     Icon(

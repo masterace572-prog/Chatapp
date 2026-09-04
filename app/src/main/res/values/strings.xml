@@ -1,9 +1,152 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Pulse</string>
+
     <!-- Main bottom navigation (S18) -->
     <string name="tab_chats">Chats</string>
     <string name="tab_calls">Calls</string>
     <string name="tab_people">People</string>
     <string name="tab_settings">Settings</string>
+
+    <!-- Common -->
+    <string name="common_continue">Continue</string>
+    <string name="common_edit">Edit</string>
+
+    <!-- S02 Welcome -->
+    <string name="welcome_headline">Messaging, refined.</string>
+    <string name="welcome_subtitle">Fast, private messaging with a calm, modern feel.</string>
+    <string name="welcome_google">Continue with Google</string>
+    <string name="welcome_login">Log in</string>
+    <string name="welcome_create">Create account</string>
+    <string name="welcome_terms_prefix">By continuing you agree to our </string>
+    <string name="welcome_terms">Terms</string>
+    <string name="welcome_terms_and"> and </string>
+    <string name="welcome_privacy">Privacy Policy</string>
+    <string name="welcome_account_picker_title">Choose an account</string>
+    <string name="welcome_other_account">Use another account</string>
+
+    <!-- S03/S04 Login -->
+    <string name="login_title">Log in</string>
+    <string name="login_email_subtitle">Enter your email to continue.</string>
+    <string name="login_email_label">Email</string>
+    <string name="login_email_placeholder">you@example.com</string>
+    <string name="login_use_phone">Use phone number instead</string>
+    <string name="login_password_title">Your password</string>
+    <string name="login_password_subtitle">Enter the password for your account.</string>
+    <string name="login_password_label">Password</string>
+    <string name="login_password_placeholder">8+ characters</string>
+    <string name="login_forgot_password">Forgot password?</string>
+
+    <!-- S03b Phone -->
+    <string name="phone_title">Your phone number</string>
+    <string name="phone_subtitle">We will send a 6-digit code to verify it.</string>
+    <string name="phone_label">Phone number</string>
+    <string name="phone_hint">98000 00000</string>
+
+    <!-- S06/S11b OTP -->
+    <string name="otp_phone_title">Enter the code</string>
+    <string name="otp_phone_subtitle">We sent a 6-digit code to %1$s.</string>
+    <string name="otp_email_title">Check your email</string>
+    <string name="otp_email_subtitle">We sent a 6-digit code to %1$s.</string>
+    <string name="otp_resend_in">Resend code in 0:%1$s</string>
+    <string name="otp_resend">Resend code</string>
+    <string name="otp_change_phone">Change number</string>
+    <string name="otp_change_email">Use a different email</string>
+    <string name="otp_demo_hint">Demo: enter 123456</string>
+
+    <!-- S07-S09 Forgot / reset -->
+    <string name="forgot_title">Forgot password?</string>
+    <string name="forgot_subtitle">Enter your email and we will send a reset link.</string>
+    <string name="forgot_inbox_title">Check your inbox</string>
+    <string name="forgot_inbox_desc">We sent a password reset link to\n%1$s.</string>
+    <string name="forgot_inbox_tip">The link expires in 30 minutes. Spam folder? Have a look there too.</string>
+    <string name="forgot_open_email_app">Open email app</string>
+    <string name="forgot_resend">Resend</string>
+    <string name="forgot_back_to_login">Back to log in</string>
+    <string name="reset_title">Choose a new password</string>
+    <string name="reset_subtitle">Make it strong — you will use it to log in.</string>
+    <string name="reset_password_label">New password</string>
+    <string name="reset_password_placeholder">8+ characters</string>
+    <string name="reset_confirm_label">Confirm password</string>
+    <string name="reset_confirm_placeholder">Repeat your password</string>
+    <string name="reset_confirm_mismatch">Passwords do not match.</string>
+    <string name="reset_demo_hint">Demo: use any password, e.g. NewPass1!</string>
+
+    <!-- S10 Success -->
+    <string name="success_reset_title">Password changed</string>
+    <string name="success_reset_subtitle">You can now log in with your new password.</string>
+    <string name="success_reset_button">Back to log in</string>
+    <string name="success_account_title">Welcome to Pulse</string>
+    <string name="success_account_subtitle">Your account is ready. Say hello to your friends.</string>
+    <string name="success_account_button">Start chatting</string>
+
+    <!-- S11a/S11c Sign-up -->
+    <string name="signup_email_title">Create your account</string>
+    <string name="signup_email_subtitle">Enter your email to get started.</string>
+    <string name="signup_already_account">Already have an account? Log in</string>
+    <string name="signup_password_title">Create a password</string>
+    <string name="signup_password_subtitle">You will use this password to log in.</string>
+
+    <!-- S12 Name -->
+    <string name="profile_name_title">What is your name?</string>
+    <string name="profile_name_subtitle">Use your real name so friends recognise you.</string>
+    <string name="profile_name_first">First name</string>
+    <string name="profile_name_first_placeholder">Aarav</string>
+    <string name="profile_name_last">Last name (optional)</string>
+    <string name="profile_name_last_placeholder">Kapoor</string>
+
+    <!-- S13 Username -->
+    <string name="profile_username_title">Choose a username</string>
+    <string name="profile_username_subtitle">Your friends can find you by @username.</string>
+    <string name="profile_username_label">Username</string>
+    <string name="profile_username_hint">username</string>
+    <string name="profile_username_available">This username is available.</string>
+    <string name="profile_username_suggestions">Suggestions</string>
+
+    <!-- S14 Photo -->
+    <string name="profile_photo_title">Add a profile photo</string>
+    <string name="profile_photo_subtitle">This is how people will see you.</string>
+    <string name="profile_photo_edit">Edit photo</string>
+    <string name="profile_photo_choose_avatar">Choose an avatar</string>
+    <string name="profile_photo_skip">Skip for now</string>
+    <string name="profile_photo_avatar_picker_title">Pick a muted colour for your initials</string>
+    <string name="profile_photo_take">Take photo</string>
+    <string name="profile_photo_gallery">Choose from gallery</string>
+    <string name="profile_photo_remove">Remove photo</string>
+
+    <!-- S15 Bio -->
+    <string name="profile_bio_title">Add a bio (optional)</string>
+    <string name="profile_bio_subtitle">Tell people a little about yourself.</string>
+    <string name="profile_bio_placeholder">Designer. Runner. Coffee first.</string>
+    <string name="profile_bio_optional">Optional</string>
+    <string name="profile_bio_skip">Skip for now</string>
+
+    <!-- S16 Permissions -->
+    <string name="permissions_title">Enable permissions</string>
+    <string name="permissions_subtitle">A few permissions help Pulse work better. You can change them anytime.</string>
+    <string name="perm_contacts_title">Contacts</string>
+    <string name="perm_contacts_reason">See which of your friends are on Pulse.</string>
+    <string name="perm_notifications_title">Notifications</string>
+    <string name="perm_notifications_reason">Get alerts when you receive a message.</string>
+    <string name="perm_microphone_title">Microphone</string>
+    <string name="perm_microphone_reason">Send voice messages in chats.</string>
+    <string name="perm_camera_title">Camera</string>
+    <string name="perm_camera_reason">Take photos and videos to share.</string>
+
+    <!-- S17 Find friends -->
+    <string name="friends_title">Find friends</string>
+    <string name="friends_subtitle">Start chatting with people already on Pulse.</string>
+    <string name="friends_section_on_pulse">Already on Pulse</string>
+    <string name="friends_section_invite">Invite friends</string>
+    <string name="friends_invite">Invite</string>
+    <string name="friends_added">Added</string>
+
+    <!-- Auth snackbars -->
+    <string name="snack_code_sent">Code resent (demo).</string>
+    <string name="snack_reset_link_sent">Reset link sent again (demo).</string>
+    <string name="snack_added_contact">Added to contacts (demo).</string>
+    <string name="snack_invite_sent">Invitation sent (demo).</string>
+    <string name="snack_coming_later">This opens with media support in a later milestone.</string>
+    <string name="snack_no_email_app">No email app found on this device.</string>
+    <string name="snack_account_exists">An account with this email already exists. Log in instead.</string>
 </resources>

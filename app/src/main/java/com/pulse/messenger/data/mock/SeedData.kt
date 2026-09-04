@@ -2,6 +2,7 @@ package com.pulse.messenger.data.mock
 
 import com.pulse.messenger.domain.model.Chat
 import com.pulse.messenger.domain.model.ChatKind
+import com.pulse.messenger.domain.model.GoogleAccount
 import com.pulse.messenger.domain.model.Message
 import com.pulse.messenger.domain.model.MessageStatus
 import com.pulse.messenger.domain.model.MessageType
@@ -41,6 +42,30 @@ object SeedData {
 
     /** "Me" once profile setup exists (S12-S15); M2 replaces the placeholder. */
     val me: User = User("me", "Aarav", "Kapoor", "aaravk", "+91 98110 90000", "Building Pulse.", 3)
+
+    /**
+     * Mock Google accounts shown by the S05 account-picker sheet.
+     * The first email maps to an existing Pulse profile (routes straight to
+     * Main); the second is new to Pulse (routes to profile setup S12-S17).
+     */
+    val googleAccounts: List<GoogleAccount> = listOf(
+        GoogleAccount("g-existing", "aarav.kapoor@gmail.com", "Aarav Kapoor", 3),
+        GoogleAccount("g-new", "jordan.lee@gmail.com", "Jordan Lee", 5),
+    )
+
+    /** S13 username suggestions derived from the chosen display name. */
+    fun usernameSuggestions(firstName: String, lastName: String): List<String> {
+        val f = firstName.lowercase().filter { it.isLetter() }
+        val l = lastName.lowercase().filter { it.isLetter() }
+        if (f.isEmpty()) return emptyList()
+        val options = buildList {
+            add(f)
+            if (l.isNotEmpty()) add("$f.$l")
+            if (l.isNotEmpty()) add("$f$l")
+            add("$f.${f.length + 7}")
+        }
+        return options.distinct().take(3)
+    }
 
     val usersById: Map<String, User> =
         (contacts + me).associateBy { it.id }

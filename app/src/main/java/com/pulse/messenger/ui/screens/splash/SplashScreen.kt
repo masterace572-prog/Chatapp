@@ -26,14 +26,14 @@ import com.pulse.messenger.ui.theme.PulseTheme
 @Composable
 fun SplashScreen(
     viewModel: SplashViewModel,
-    onFinished: () -> Unit,
+    onFinished: (target: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val c = PulseTheme.colors
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(uiState) {
-        if (uiState == SplashUiState.Done) onFinished()
+        if (uiState is SplashUiState.Done) onFinished((uiState as SplashUiState.Done).target)
     }
 
     Box(

@@ -64,6 +64,8 @@ fun AppTextField(
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
     onTrailingIconClick: (() -> Unit)? = null,
+    /** Custom trailing slot (takes precedence over trailingIcon) - e.g. live status spinners. */
+    trailingContent: (@Composable () -> Unit)? = null,
     isPassword: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
     imeAction: ImeAction = ImeAction.Default,
@@ -83,7 +85,7 @@ fun AppTextField(
         if (autoFocus && enabled) focusRequester.requestFocus()
     }
 
-    val showTrailing = trailingIcon != null || isPassword
+    val showTrailing = trailingIcon != null || isPassword || trailingContent != null
     val trailing = when {
         trailingIcon != null -> Triple(trailingIcon, onTrailingIconClick, false)
         isPassword -> {
@@ -172,7 +174,10 @@ fun AppTextField(
                     },
                 )
             }
-            if (showTrailing && trailing != null) {
+            if (trailingContent != null) {
+                Spacer(Modifier.width(PulseSpacing.sm))
+                trailingContent()
+            } else if (showTrailing && trailing != null) {
                 Spacer(Modifier.width(PulseSpacing.sm))
                 val (icon, onClick, _) = trailing
                 val iconContent: @Composable () -> Unit = {
