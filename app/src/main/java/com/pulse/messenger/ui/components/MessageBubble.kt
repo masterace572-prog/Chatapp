@@ -1,29 +1,38 @@
 package com.pulse.messenger.ui.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalUriHandler
@@ -32,6 +41,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -45,6 +55,7 @@ import com.pulse.messenger.ui.icons.AppIcons
 import com.pulse.messenger.ui.theme.AvatarTones
 import com.pulse.messenger.ui.theme.PulseBubbleShape
 import com.pulse.messenger.ui.theme.PulseIconSizes
+import com.pulse.messenger.ui.theme.PulseShapes
 import com.pulse.messenger.ui.theme.PulseSizes
 import com.pulse.messenger.ui.theme.PulseSpacing
 import com.pulse.messenger.ui.theme.PulseTheme
@@ -52,20 +63,33 @@ import com.pulse.messenger.ui.util.ConversationFormat
 import com.pulse.messenger.ui.util.MessageLabels
 
 private val URL_REGEX = Regex("""https?://[^\s<>"']+""")
+private val MENTION_REGEX = Regex("""@\w+""")
+
+/**
+ * Resolved reply-quote data for one bubble (sender + excerpt + kind).
+ * Non-text targets render their type icon + label instead of an excerpt.
+ */
+data class BubbleQuoteData(
+    val senderName: String,
+    val text: String,
+    val isText: Boolean,
+    val type: MessageType,
+)
 
 /**
  * One chat bubble (PRD §7 MessageBubble + S23).
  *
- * Handles text (tappable links, wrapping, max ~78% width), content-type
- * placeholders (image/video/voice/file/location/contact/poll/sticker render
- * as a neutral labelled bubble until M4b/M4c), edited/deleted labels, the
- * delivery tick row, failed-message retry, group sender names on run starts
- * and the run avatar on the last bubble of an incoming run.
+ * M4a core: text with tappable links + accent mentions, content-type
+ * placeholders, run geometry, delivery ticks, retry.
+ * M4b additions: reply quote (tap scrolls to the original), "Forwarded"
+ * label, star marker next to the time, reactions pill row, flash highlight
+ * (scroll-to target), long-press / selection hooks and the voice-note
+ * content with simulated playback.
  *
- * Stateless: run geometry (first/last), resolved names/colours and the retry
- * callback come from the screen. System messages have their own row
- * (SystemMessageRow in ChatExtras.kt) and never reach this composable.
+ * Stateless: the screen resolves quote data, names, colours, run geometry
+ * and passes the callbacks.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MessageBubble(
     message: Message,
@@ -76,16 +100,44 @@ fun MessageBubble(
     senderNameColor: Color? = null,
     avatarSeed: Int? = null,
     onRetry: (() -> Unit)? = null,
+    quote: BubbleQuoteData? = null,
+    onQuoteTap: (() -> Unit)? = null,
+    flashSignal: Int = 0,
+    onLongPress: (() -> Unit)? = null,
+    onTap: (() -> Unit)? = null,
+    onToggleReaction: (String) -> Unit = {},
+    onReactionLongPress: (String) -> Unit = {},
+    voicePlaying: Boolean = false,
+    onVoiceToggle: () -> Unit = {},
 ) {
     val isOutgoing = message.isOutgoing
     val c = PulseTheme.colors
     val bubbleShape = PulseBubbleShape(isOutgoing, isFirstInRun, isLastInRun)
 
-    // avatarSeed is non-null for incoming GROUP runs only: the avatar is drawn
-    // on the last bubble of a run and every other group row reserves its
-    // gutter so bubbles stay aligned. Direct chats draw no gutter at all.
+    // avatarSeed non-null = incoming GROUP rows: avatar on the run's last
+    // bubble; the other rows reserve the gutter so bubbles stay aligned.
     val isGroupRow = !isOutgoing && avatarSeed != null
     val showAvatar = isGroupRow && isLastInRun
+
+    // Scroll-target flash (accentContainer overlay fading out over ~600ms).
+    var flashAlpha by remember { mutableStateOf(0f) }
+    LaunchedEffect(flashSignal) {
+        if (flashSignal > 0) {
+            val anim = Animatable(0.45f)
+            flashAlpha = 0.45f
+            anim.animateTo(0f, animationSpec = tween(600))
+            flashAlpha = 0f
+        }
+    }
+
+    val clickModifier = if (onLongPress != null || onTap != null) {
+        Modifier.combinedClickable(
+            onClick = { onTap?.invoke() },
+            onLongClick = onLongPress,
+        )
+    } else {
+        Modifier
+    }
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val maxBubbleWidth = maxWidth * 0.78f
@@ -109,7 +161,7 @@ fun MessageBubble(
             }
 
             Column(Modifier.widthIn(max = maxBubbleWidth)) {
-                if (senderName != null && !isOutgoing) {
+                if (senderName != null && !isOutgoing && !message.isSystem) {
                     Text(
                         text = senderName,
                         style = MaterialTheme.typography.labelMedium,
@@ -120,92 +172,245 @@ fun MessageBubble(
                     )
                 }
 
-                Column(
+                Box(
                     modifier = Modifier
-                        .background(
-                            color = if (isOutgoing) c.accent else c.surfaceVariant,
-                            shape = bubbleShape,
-                        )
+                        .background(color = bubbleColor(message, isOutgoing), shape = bubbleShape)
+                        .then(clickModifier)
                         .padding(horizontal = PulseSpacing.md, vertical = PulseSpacing.sm),
                 ) {
-                    BubbleContent(message = message, isOutgoing = isOutgoing)
-                    BubbleMetaRow(message = message, isOutgoing = isOutgoing)
+                    Column {
+                        BubbleQuote(message = message, quote = quote, isOutgoing = isOutgoing, onClick = onQuoteTap)
+                        BubbleContent(
+                            message = message,
+                            isOutgoing = isOutgoing,
+                            voicePlaying = voicePlaying,
+                            onVoiceToggle = onVoiceToggle,
+                        )
+                        BubbleMetaRow(message = message, isOutgoing = isOutgoing)
+                    }
+                    // Flash overlay (drawn above content while fading).
+                    if (flashAlpha > 0f) {
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clip(bubbleShape)
+                                .background(c.accentContainer.copy(alpha = flashAlpha)),
+                        )
+                    }
                 }
 
                 if (message.status == MessageStatus.Failed && message.isOutgoing) {
                     RetryRow(onRetry = onRetry)
                 }
+
+                // Reactions pill row under the bubble (own side alignment).
+                val pills = if (message.isDeleted) emptyList() else reactionPills(message)
+                if (pills.isNotEmpty()) {
+                    ReactionPillRow(
+                        pills = pills,
+                        isOutgoing = isOutgoing,
+                        modifier = Modifier.padding(top = PulseSpacing.xs),
+                        onToggle = onToggleReaction,
+                        onLongPress = onReactionLongPress,
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun BubbleContent(message: Message, isOutgoing: Boolean) {
+private fun bubbleColor(message: Message, isOutgoing: Boolean): Color {
+    val c = PulseTheme.colors
+    return if (isOutgoing) c.accent else c.surfaceVariant
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun BubbleQuote(
+    message: Message,
+    quote: BubbleQuoteData?,
+    isOutgoing: Boolean,
+    onClick: (() -> Unit)?,
+) {
+    if (quote == null || message.isDeleted || message.isSystem) return
+    val c = PulseTheme.colors
+    val accent = if (isOutgoing) c.onAccent else c.accent
+    val quoteColor = if (isOutgoing) c.onAccent.copy(alpha = 0.92f) else c.textPrimary
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.combinedClickable(onClick = onClick) else Modifier)
+            .padding(bottom = PulseSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(34.dp)
+                .clip(RoundedCornerShape(1.5.dp))
+                .background(accent),
+        )
+        Spacer(Modifier.width(PulseSpacing.sm))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = quote.senderName,
+                style = MaterialTheme.typography.labelMedium,
+                color = accent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (quote.isText) {
+                Text(
+                    text = quote.text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = quoteColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = iconForType(quote.type),
+                        contentDescription = null,
+                        modifier = Modifier.size(PulseIconSizes.small),
+                        tint = if (isOutgoing) c.onAccent.copy(alpha = 0.85f) else c.textSecondary,
+                    )
+                    Spacer(Modifier.width(PulseSpacing.xs))
+                    Text(
+                        text = MessageLabels.bubbleLabel(quote.type),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = quoteColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BubbleContent(
+    message: Message,
+    isOutgoing: Boolean,
+    voicePlaying: Boolean,
+    onVoiceToggle: () -> Unit,
+) {
+    Column {
+        // Forwarded label above the content (hidden for deleted/system).
+        if (message.forwardedFromUserId != null && !message.isDeleted && !message.isSystem) {
+            ForwardedLabel(isOutgoing = isOutgoing)
+        }
+        when {
+            message.isDeleted -> DeletedContent(isOutgoing = isOutgoing)
+
+            message.content is MessageContent.Text -> {
+                BubbleText(message = message, isOutgoing = isOutgoing)
+            }
+
+            message.content is MessageContent.Voice -> {
+                val voice = message.content as MessageContent.Voice
+                VoiceNoteContent(
+                    isOutgoing = isOutgoing,
+                    durationSeconds = voice.durationSeconds,
+                    waveformSamples = voice.waveformSamples,
+                    isPlaying = voicePlaying,
+                    onPlayPause = onVoiceToggle,
+                    seedKey = message.id,
+                )
+            }
+
+            else -> PlaceholderContent(message = message, isOutgoing = isOutgoing)
+        }
+    }
+}
+
+/** "This message was deleted" (italic, with icon). */
+@Composable
+private fun DeletedContent(isOutgoing: Boolean) {
     val c = PulseTheme.colors
     val contentColor = if (isOutgoing) c.onAccent else c.textPrimary
-
-    when {
-        message.isDeleted -> {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = AppIcons.AlertTriangle,
-                    contentDescription = null,
-                    modifier = Modifier.size(PulseIconSizes.inline),
-                    tint = contentColor.copy(alpha = 0.7f),
-                )
-                Spacer(Modifier.width(PulseSpacing.xs))
-                Text(
-                    text = stringResource(R.string.conversation_deleted_message),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
-                    color = contentColor.copy(alpha = 0.7f),
-                )
-            }
-        }
-
-        message.content is MessageContent.Text -> BubbleText(
-            text = message.text,
-            isOutgoing = isOutgoing,
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = AppIcons.AlertTriangle,
+            contentDescription = null,
+            modifier = Modifier.size(PulseIconSizes.inline),
+            tint = contentColor.copy(alpha = 0.7f),
         )
-
-        else -> PlaceholderContent(message = message, isOutgoing = isOutgoing)
+        Spacer(Modifier.width(PulseSpacing.xs))
+        Text(
+            text = stringResource(R.string.conversation_deleted_message),
+            style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
+            color = contentColor.copy(alpha = 0.7f),
+        )
     }
 }
 
-/**
- * Plain text with tappable link spans (S23). Tap detection maps the pointer
- * position back through the measured layout - stable Text API (ClickableText
- * is deprecated in current Compose).
- */
+/** "Forwarded" with a share icon (S23). */
 @Composable
-private fun BubbleText(text: String, isOutgoing: Boolean) {
+private fun ForwardedLabel(isOutgoing: Boolean) {
+    val c = PulseTheme.colors
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = AppIcons.Share,
+            contentDescription = null,
+            modifier = Modifier.size(PulseIconSizes.tiny),
+            tint = if (isOutgoing) c.onAccent.copy(alpha = 0.8f) else c.textSecondary,
+        )
+        Spacer(Modifier.width(PulseSpacing.xs))
+        Text(
+            text = stringResource(R.string.conversation_forwarded_label),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = FontWeight.SemiBold,
+                color = if (isOutgoing) c.onAccent.copy(alpha = 0.9f) else c.textSecondary,
+            ),
+        )
+    }
+    Spacer(Modifier.height(PulseSpacing.tight))
+}
+
+/** Plain text with tappable links + accent @mention highlights (S23/M4b). */
+@Composable
+private fun BubbleText(message: Message, isOutgoing: Boolean) {
+    val text = message.text
     val c = PulseTheme.colors
     val uriHandler = LocalUriHandler.current
     val links = remember(text) { URL_REGEX.findAll(text).map { it.range }.toList() }
+    val mentions = remember(text) { MENTION_REGEX.findAll(text).map { it.range }.toList() }
     val baseStyle = MaterialTheme.typography.bodyLarge.copy(
         color = if (isOutgoing) c.onAccent else c.textPrimary,
     )
 
-    if (links.isEmpty()) {
+    if (links.isEmpty() && mentions.isEmpty()) {
         Text(text = text, style = baseStyle)
         return
     }
 
     val linkColor = if (isOutgoing) c.onAccent.copy(alpha = 0.9f) else c.accent
-    val annotated = remember(text) {
+    val mentionColor = if (isOutgoing) c.onAccent else c.accent
+    val annotated = remember(text, isOutgoing) {
         buildAnnotatedString {
+            // Styled segments: mentions first (accent/weight), links underline.
             var cursor = 0
-            links.forEach { range ->
-                append(text.substring(cursor, range.first))
+            val boundaries = (links + mentions).sortedBy { it.first }
+            boundaries.forEach { range ->
+                if (range.first > cursor) append(text.substring(cursor, range.first))
+                val inMention = mentions.any { range.first in it && range.last in it }
+                val inLink = links.any { range.first in it && range.last in it }
                 withStyle(
-                    SpanStyle(
-                        color = linkColor,
-                        textDecoration = TextDecoration.Underline,
-                    ),
+                    when {
+                        inLink -> SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)
+                        inMention -> SpanStyle(
+                            color = mentionColor,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        else -> SpanStyle()
+                    },
                 ) { append(text.substring(range.first, range.last + 1)) }
                 cursor = range.last + 1
             }
-            append(text.substring(cursor))
+            if (cursor < text.length) append(text.substring(cursor))
         }
     }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
@@ -225,7 +430,7 @@ private fun BubbleText(text: String, isOutgoing: Boolean) {
     )
 }
 
-/** Neutral placeholder for content types whose real rendering lands M4b/M4c. */
+/** Neutral placeholder for content types whose rendering lands M4c/M4d. */
 @Composable
 private fun PlaceholderContent(message: Message, isOutgoing: Boolean) {
     val c = PulseTheme.colors
@@ -272,7 +477,7 @@ private fun iconForType(type: MessageType) = when (type) {
     MessageType.System -> AppIcons.Info
 }
 
-/** Time (+ edited label + ticks) tucked into the bubble's bottom-right. */
+/** Time (+ star, edited label, ticks) tucked into the bubble's bottom-right. */
 @Composable
 private fun ColumnScope.BubbleMetaRow(message: Message, isOutgoing: Boolean) {
     val c = PulseTheme.colors
@@ -284,6 +489,16 @@ private fun ColumnScope.BubbleMetaRow(message: Message, isOutgoing: Boolean) {
             .padding(top = PulseSpacing.tight),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (message.isStarred && !message.isDeleted) {
+            Icon(
+                imageVector = AppIcons.Star,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(PulseSizes.bubbleMetaIcon)
+                    .padding(end = PulseSpacing.xs),
+                tint = if (isOutgoing) c.onAccent.copy(alpha = 0.9f) else c.warning,
+            )
+        }
         if (message.isEdited && !message.isDeleted) {
             Text(
                 text = edited,
@@ -309,13 +524,14 @@ private fun ColumnScope.BubbleMetaRow(message: Message, isOutgoing: Boolean) {
 }
 
 /** Error line under a failed outgoing message (S23: "Tap to retry"). */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RetryRow(onRetry: (() -> Unit)?) {
     val c = PulseTheme.colors
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = onRetry != null, onClick = { onRetry?.invoke() })
+            .combinedClickable(enabled = onRetry != null, onClick = { onRetry?.invoke() })
             .padding(top = PulseSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.End,

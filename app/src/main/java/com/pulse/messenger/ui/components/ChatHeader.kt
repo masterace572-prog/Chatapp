@@ -83,6 +83,7 @@ fun ChatHeader(
     onVideoCall: () -> Unit = {},
     onMenuAction: (ChatHeaderAction) -> Unit = {},
     muted: Boolean = false,
+    blocked: Boolean = false,
 ) {
     val c = PulseTheme.colors
     var menuOpen by remember { mutableStateOf(false) }
@@ -216,7 +217,13 @@ fun ChatHeader(
                     menuOpen = false
                     onMenuAction(ChatHeaderAction.ClearChat)
                 }
-                HeaderMenuItem(AppIcons.Ban, stringResource(R.string.conversation_menu_block)) {
+                HeaderMenuItem(
+                    AppIcons.Ban,
+                    stringResource(
+                        if (blocked) R.string.conversation_menu_unblock
+                        else R.string.conversation_menu_block,
+                    ),
+                ) {
                     menuOpen = false
                     onMenuAction(ChatHeaderAction.Block)
                 }

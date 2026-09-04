@@ -40,6 +40,8 @@ internal val DarkSuccess = Color(0xFF3FA372)
 internal val DarkWarning = Color(0xFFD4922E)
 internal val DarkError = Color(0xFFE05A5A)
 internal val DarkInfo = Color(0xFF4A8AD0)
+internal val LightScrim = Color(0x66000000)
+internal val DarkScrim = Color(0x99000000)
 
 /**
  * A muted accent choice (PRD §4.1 / S60 swatches). The app defaults to Indigo.
@@ -83,6 +85,8 @@ data class PulseColors(
     val onError: Color,
     val info: Color,
     val accentContainerMuted: Color,
+    /** Overlay dimming behind long-press popups and modals. */
+    val scrim: Color,
     /** True when the palette is the dark theme (drives derived tints). */
     val isDark: Boolean = false,
 )
@@ -102,6 +106,7 @@ private fun buildPulseColors(
     error: Color,
     info: Color,
     containerAlpha: Float,
+    scrim: Color,
     isDark: Boolean,
 ): PulseColors {
     val accentContainer = lerp(accent, surface, 1f - containerAlpha)
@@ -129,6 +134,7 @@ private fun buildPulseColors(
         onError = onError,
         info = info,
         accentContainerMuted = accentContainerMuted,
+        scrim = scrim,
         isDark = isDark,
     )
 }
@@ -156,6 +162,7 @@ internal fun lightPulseColors(accent: AccentPreset): PulseColors = buildPulseCol
     error = LightError,
     info = LightInfo,
     containerAlpha = 0.10f, // accentContainer = accent @ 10%
+    scrim = LightScrim,
     isDark = false,
 )
 
@@ -174,6 +181,7 @@ internal fun darkPulseColors(accent: AccentPreset): PulseColors = buildPulseColo
     error = DarkError,
     info = DarkInfo,
     containerAlpha = 0.14f, // accentContainer = accent @ 14%
+    scrim = DarkScrim,
     isDark = true,
 )
 

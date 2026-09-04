@@ -275,4 +275,84 @@
     <string name="conversation_composer_camera_cd">Camera</string>
     <string name="conversation_composer_mic_cd">Voice message</string>
     <string name="conversation_composer_send_cd">Send</string>
+    <!-- M4b: message actions -->
+    <string name="conversation_action_reply">Reply</string>
+    <string name="conversation_action_forward">Forward</string>
+    <string name="conversation_action_copy">Copy</string>
+    <string name="conversation_action_pin">Pin</string>
+    <string name="conversation_action_unpin">Unpin</string>
+    <string name="conversation_action_star">Star</string>
+    <string name="conversation_action_unstar">Unstar</string>
+    <string name="conversation_action_edit">Edit</string>
+    <string name="conversation_action_info">Info</string>
+    <string name="conversation_action_delete">Delete</string>
+    <string name="conversation_action_select">Select</string>
+    <string name="conversation_copied">Copied</string>
+    <string name="conversation_forwarded">Forwarded</string>
+    <string name="conversation_forwarded_label">Forwarded</string>
+    <string name="conversation_react_cd">React</string>
+    <string name="conversation_reactions_title">Reactions</string>
+    <string name="conversation_more_reactions_cd">More reactions</string>
+    <string name="conversation_you">You</string>
+
+    <!-- M4b: reply / edit bars -->
+    <string name="conversation_reply_to">Reply to %1$s</string>
+    <string name="conversation_edit_message">Edit message</string>
+    <string name="conversation_close_bar_cd">Close</string>
+
+    <!-- M4b: voice recording -->
+    <string name="conversation_slide_to_cancel">Slide to cancel</string>
+    <string name="conversation_recording_cd">Recording</string>
+    <string name="conversation_lock_recording_cd">Lock recording</string>
+    <string name="conversation_cancel_recording_cd">Cancel recording</string>
+    <string name="conversation_voice_too_short">Hold a little longer to record</string>
+    <string name="conversation_delete_recording_cd">Delete recording</string>
+    <string name="conversation_pause_recording_cd">Pause recording</string>
+    <string name="conversation_resume_recording_cd">Resume recording</string>
+    <string name="conversation_speed_1x">1×</string>
+    <string name="conversation_speed_1_5x">1.5×</string>
+    <string name="conversation_speed_2x">2×</string>
+    <string name="conversation_speed_cd">Playback speed</string>
+    <string name="conversation_voice_play_cd">Play voice message</string>
+    <string name="conversation_voice_pause_cd">Pause voice message</string>
+
+    <!-- M4b: blocked / read-only composer -->
+    <string name="conversation_blocked_hint">You blocked this contact.</string>
+    <string name="conversation_unblock">Unblock</string>
+    <string name="conversation_menu_unblock">Unblock</string>
+    <string name="conversation_block_title">Block %1$s?</string>
+    <string name="conversation_block_text">They won\'t be able to call you or send you messages. You can unblock them anytime.</string>
+    <string name="conversation_block_confirm">Block</string>
+    <string name="conversation_read_only_hint">Only admins can send messages</string>
+
+    <!-- M4b: delete -->
+    <string name="conversation_delete_title">Delete message?</string>
+    <string name="conversation_delete_me">Delete for me</string>
+    <string name="conversation_delete_everyone">Delete for everyone</string>
+    <string name="conversation_delete_single_text">You can delete this message for everyone or just for you.</string>
+    <string name="conversation_delete_others_text">This message will be deleted for you only.</string>
+    <string name="conversation_delete_many_title">Delete messages?</string>
+    <string name="conversation_delete_many_text">%1$d messages will be deleted for you.</string>
+
+    <!-- M4b: pinned banner -->
+    <string name="conversation_pinned_message">Pinned message</string>
+    <string name="conversation_unpin_cd">Unpin message</string>
+    <string name="conversation_unpin_title">Unpin message?</string>
+    <string name="conversation_unpin_text">Remove this message from the pinned banner?</string>
+    <string name="conversation_unpin_confirm">Unpin</string>
+    <string name="conversation_close_selection_cd">Close selection</string>
+
+    <!-- M4b: forward sheet -->
+    <string name="forward_title">Forward to</string>
+    <string name="forward_search_hint">Search chats</string>
+    <string name="forward_recent">Recent</string>
+    <string name="forward_comment_hint">Add a comment</string>
+    <string name="forward_send_count">Send (%1$d)</string>
+    <string name="forward_send_cd">Send</string>
+    <string name="forward_remove_cd">Remove %1$s</string>
+    <string name="forward_no_results">No chats match your search.</string>
+    <plurals name="forward_message_count">
+        <item quantity="one">%1$d message</item>
+        <item quantity="other">%1$d messages</item>
+    </plurals>
 </resources>
