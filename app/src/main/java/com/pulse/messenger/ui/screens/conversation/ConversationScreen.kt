@@ -103,6 +103,7 @@ import com.pulse.messenger.ui.components.MediaSendSheet
 import com.pulse.messenger.ui.components.MultiSelectTopBar
 import com.pulse.messenger.ui.components.PinnedBanner
 import com.pulse.messenger.ui.components.PinnedBannerData
+import com.pulse.messenger.ui.components.PollComposerSheet
 import com.pulse.messenger.ui.components.QuickReactionBar
 import com.pulse.messenger.ui.components.ReactorUi
 import com.pulse.messenger.ui.components.RecentMediaItem
@@ -202,6 +203,9 @@ fun ConversationScreen(
             send = vm::send,
             sendImages = vm::sendImages,
             sendVideo = vm::sendVideo,
+            sendPoll = vm::sendPoll,
+            votePoll = vm::votePoll,
+            retractVote = vm::retractVote,
             toggleReaction = vm::toggleReaction,
             toggleStar = vm::toggleStar,
             pin = vm::pinMessage,
@@ -232,6 +236,9 @@ internal class VmBridge(
     val send: () -> Unit,
     val sendImages: (List<String>, String?) -> Unit,
     val sendVideo: (String, Int, String?) -> Unit,
+    val sendPoll: (String, List<String>, Boolean, Boolean, Boolean, Int?) -> Unit,
+    val votePoll: (String, List<Int>) -> Unit,
+    val retractVote: (String) -> Unit,
     val toggleReaction: (String, String) -> Unit,
     val toggleStar: (String) -> Unit,
     val pin: (String) -> Unit,
@@ -291,6 +298,7 @@ internal fun ConversationContent(
     var pendingAdd by remember { mutableStateOf(false) }
     var recentMedia by remember { mutableStateOf<List<RecentMediaItem>>(emptyList()) }
     var viewerSession by remember { mutableStateOf<ViewerSession?>(null) }
+    var pollComposerOpen by remember { mutableStateOf(false) }
 
     val chat = state.chat
     val overlayMessage = state.actionMessageId?.let { id ->
@@ -410,6 +418,10 @@ internal fun ConversationContent(
         when (tile) {
             AttachmentTile.Camera -> openCamera()
             AttachmentTile.Gallery -> launchGalleryPicker()
+            AttachmentTile.Poll -> {
+                showTray = false
+                pollComposerOpen = true
+            }
             else -> toastComingSoon(context, attachmentTileLabel(tile))
         }
     }
@@ -466,6 +478,9 @@ internal fun ConversationContent(
     }
     BackHandler(enabled = cameraOpen) {
         cameraOpen = false
+    }
+    BackHandler(enabled = pollComposerOpen) {
+        pollComposerOpen = false
     }
 
     // Scroll-to target (reply quote / pinned banner taps).
@@ -605,6 +620,8 @@ internal fun ConversationContent(
                     onReactionLongPress = { id, emoji -> reactorsTarget = id to emoji },
                     onImageTap = { id, _ -> openMediaViewer(id, videoOnly = false) },
                     onVideoTap = { id -> openMediaViewer(id, videoOnly = true) },
+                    onPollVote = { id, indexes -> onVm?.votePoll?.invoke(id, indexes) },
+                    onPollRetract = { id -> onVm?.retractVote?.invoke(id) },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -726,6 +743,8 @@ internal fun ConversationContent(
                                     voicePlayingId = if (voicePlayingId == rowMessage.id) null
                                     else rowMessage.id
                                 },
+                                onPollVote = { indexes -> onVm?.votePoll?.invoke(rowMessage.id, indexes) },
+                                onPollRetract = { onVm?.retractVote?.invoke(rowMessage.id) },
                                 scale = 1.02f,
                             )
                         }
@@ -766,6 +785,10 @@ internal fun ConversationContent(
                             },
                             onDelete = { onVm?.dismissActions?.invoke(); doDelete(listOf(overlayMessage.id)) },
                             onSelect = { onVm?.enterSelection?.invoke(overlayMessage.id) },
+                            onRetractVote = {
+                                onVm?.dismissActions?.invoke()
+                                onVm?.retractVote?.invoke(overlayMessage.id)
+                            },
                         ),
                     )
                 }
@@ -969,6 +992,19 @@ internal fun ConversationContent(
             )
         }
 
+        // ---- M4c S39: create-poll composer. ----
+        if (pollComposerOpen) {
+            PollComposerSheet(
+                onDismiss = { pollComposerOpen = false },
+                onSend = { question, options, multiple, anonymous, quiz, correct ->
+                    pollComposerOpen = false
+                    onVm?.sendPoll?.invoke(question, options, multiple, anonymous, quiz, correct)
+                    snack(context.getString(R.string.conversation_poll_created))
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
         // ---- M4c S33: fullscreen media viewer (images/videos of this chat). ----
         viewerSession?.let { session ->
             MediaViewerOverlay(
@@ -1008,6 +1044,8 @@ private fun MessageBubbleReplica(
     voicePlaying: Boolean,
     onVoiceToggle: () -> Unit,
     scale: Float,
+    onPollVote: ((List<Int>) -> Unit)? = null,
+    onPollRetract: (() -> Unit)? = null,
 ) {
     val lift = remember { androidx.compose.animation.core.Animatable(1f) }
     LaunchedEffect(Unit) {
@@ -1029,6 +1067,8 @@ private fun MessageBubbleReplica(
         onQuoteTap = onQuoteTap,
         voicePlaying = voicePlaying,
         onVoiceToggle = onVoiceToggle,
+        onPollVote = onPollVote,
+        onPollRetract = onPollRetract,
     )
 }
 
@@ -1047,6 +1087,7 @@ private fun actionItems(
     onInfo: () -> Unit,
     onDelete: () -> Unit,
     onSelect: () -> Unit,
+    onRetractVote: () -> Unit = {},
 ): List<MessageActionItem> {
     val own = message.isOutgoing
     val canEdit = own && !message.isDeleted &&
@@ -1058,6 +1099,11 @@ private fun actionItems(
         items.add(MessageActionItem(Icons.CornerUpLeft, R.string.conversation_action_reply, onClick = onReply))
     }
     items.add(MessageActionItem(Icons.Share, R.string.conversation_action_forward, onClick = onForward))
+    val myPollVote = !own && (message.content as? MessageContent.Poll)
+        ?.votes?.values?.any { users -> "me" in users } == true
+    if (myPollVote) {
+        items.add(MessageActionItem(Icons.RotateCw, R.string.conversation_poll_remove_vote, onClick = onRetractVote))
+    }
     if (canCopy) {
         items.add(MessageActionItem(Icons.Copy, R.string.conversation_action_copy, onClick = onCopy))
     }
@@ -1209,6 +1255,8 @@ private fun ConversationList(
     onReactionLongPress: (String, String) -> Unit = { _: String, _: String -> },
     onImageTap: (String, Int) -> Unit = { _: String, _: Int -> },
     onVideoTap: (String) -> Unit = {},
+    onPollVote: (String, List<Int>) -> Unit = { _: String, _: List<Int> -> },
+    onPollRetract: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val c = PulseTheme.colors
@@ -1363,6 +1411,8 @@ private fun ConversationList(
                                         },
                                         onImageTap = { index -> onImageTap(message.id, index) },
                                         onVideoTap = { onVideoTap(message.id) },
+                                        onPollVote = { idx -> onPollVote(message.id, idx) },
+                                        onPollRetract = { onPollRetract(message.id) },
                                     )
                                 }
                                 if (state.selectionMode) {

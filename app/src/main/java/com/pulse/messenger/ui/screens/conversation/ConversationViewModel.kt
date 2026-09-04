@@ -527,6 +527,47 @@ class ConversationViewModel @Inject constructor(
         }
     }
 
+    /** Creates a poll message (2..10 options, optional quiz/multi/anonymous). */
+    fun sendPoll(
+        question: String,
+        options: List<String>,
+        allowsMultiple: Boolean,
+        isAnonymous: Boolean,
+        isQuiz: Boolean,
+        correctOptionIndex: Int?,
+    ) {
+        val cleaned = options.map { it.trim() }.filter { it.isNotEmpty() }
+        val q = question.trim()
+        if (q.isEmpty() || cleaned.size < 2) return
+        val replying = replyId.value
+        replyId.value = null
+        editId.value = null
+        draftText.value = ""
+        unreadMarker.value = 0
+        viewModelScope.launch {
+            chatRepository.sendPoll(
+                chatId,
+                question = q,
+                options = cleaned,
+                allowsMultiple = allowsMultiple,
+                isAnonymous = isAnonymous,
+                isQuiz = isQuiz,
+                correctOptionIndex = correctOptionIndex,
+                replyToMessageId = replying,
+            )
+        }
+    }
+
+    /** Toggles the current user's vote on a poll (toggle-style per option). */
+    fun votePoll(messageId: String, optionIndexes: List<Int>) {
+        viewModelScope.launch { chatRepository.votePoll(messageId, optionIndexes) }
+    }
+
+    /** Removes the current user's votes from a poll. */
+    fun retractVote(messageId: String) {
+        viewModelScope.launch { chatRepository.retractVote(messageId) }
+    }
+
     /* ---------- Voice recording (M4b) ---------- */
 
     fun recordStart() {

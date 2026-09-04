@@ -757,7 +757,11 @@ internal fun PollMessageBody(
                     mine -> c.accentContainer
                     else -> c.surfaceVariant
                 }
-                val voteAction: (() -> Unit)? = if (!revealed) {
+                // Multi-answer polls stay toggleable after the first vote;
+                // single-answer polls lock once answered (unvote via actions).
+                val canInteract = !message.isOutgoing &&
+                    (poll.multipleAnswers || myOptions.isEmpty())
+                val voteAction: (() -> Unit)? = if (canInteract) {
                     {
                         if (poll.multipleAnswers) {
                             val next = myOptions.toMutableSet()

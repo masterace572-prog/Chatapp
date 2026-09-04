@@ -642,7 +642,8 @@ class MockChatRepository @Inject constructor(
                 multipleAnswers = allowsMultiple,
                 isAnonymous = isAnonymous,
                 isQuiz = isQuiz,
-            ).also { check(correctOptionIndex == null || correctOptionIndex in options.indices) },
+                correctOptionIndex = if (isQuiz) correctOptionIndex else null,
+            ).also { check(it.correctOptionIndex == null || it.correctOptionIndex in options.indices) },
             replyToMessageId,
         )
     }

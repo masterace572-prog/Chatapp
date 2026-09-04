@@ -885,3 +885,18 @@ private fun M4cMediaViewerPreview() {
         )
     }
 }
+
+@Preview(name = "M4c · Create poll (light)", showBackground = true, widthDp = 400, heightDp = 800)
+@Preview(name = "M4c · Create poll (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400, heightDp = 800)
+@Composable
+private fun M4cPollComposerPreview() {
+    PreviewHost {
+        PollComposerSheet(
+            onDismiss = {},
+            onSend = { _, _, _, _, _, _ -> },
+            modifier = Modifier.fillMaxWidth().height(800.dp),
+            initialQuestion = "Which colour should the app icon be?",
+            initialOptions = listOf("Pulse teal", "Midnight blue", "Coral"),
+        )
+    }
+}

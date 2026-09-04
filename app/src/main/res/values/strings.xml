@@ -347,6 +347,21 @@
     <string name="conversation_viewer_close_cd">Close</string>
     <string name="conversation_media_share_cd">Share</string>
     <string name="conversation_camera_timer">%1$02d:%2$02d</string>
+    <!-- M4c: create poll (S39) -->
+    <string name="conversation_poll_question_hint">Ask a question</string>
+    <string name="conversation_poll_option_hint">Option %1$d</string>
+    <string name="conversation_poll_add_option">Add option</string>
+    <string name="conversation_poll_remove_option_cd">Remove option</string>
+    <string name="conversation_poll_move_up_cd">Move up</string>
+    <string name="conversation_poll_move_down_cd">Move down</string>
+    <string name="conversation_poll_multiple">Allow multiple answers</string>
+    <string name="conversation_poll_make_quiz">Quiz mode</string>
+    <string name="conversation_poll_correct_hint">Set the correct answer</string>
+    <string name="conversation_poll_correct_cd">Mark as correct answer</string>
+    <string name="conversation_poll_validation">Add a question and at least two options</string>
+    <string name="conversation_poll_validation_quiz">Select the correct answer</string>
+    <string name="conversation_poll_remove_vote">Remove my vote</string>
+    <string name="conversation_poll_created">Poll created</string>
 
     <!-- M4b: reply / edit bars -->
     <string name="conversation_reply_to">Reply to %1$s</string>
