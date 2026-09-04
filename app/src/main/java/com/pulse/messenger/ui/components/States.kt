@@ -234,3 +234,16 @@ fun SkeletonBlock(
 ) {
     SkeletonBox(modifier = modifier.fillMaxWidth().height(height))
 }
+
+/**
+ * Named alias used by the PRD component list (PRD §7 - SkeletonLoader):
+ * generic list skeleton for chats/contacts/messages.
+ */
+@Composable
+fun SkeletonLoader(
+    rows: Int = 6,
+    modifier: Modifier = Modifier,
+    avatarSize: Dp = 52.dp,
+) {
+    SkeletonList(rows = rows, modifier = modifier, avatarSize = avatarSize)
+}
