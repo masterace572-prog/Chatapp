@@ -1220,6 +1220,19 @@ object AppIcons {
             ),
         )
     }
+
+    /** Poll chart (M4c attachments; Lucide bar-chart-3 geometry). */
+    val BarChart: ImageVector by lazy {
+        strokeIcon(
+            "BarChart",
+            listOf(
+                "M3 3v16a2 2 0 0 0 2 2h16",
+                "M18 17V9",
+                "M13 17V5",
+                "M8 17v-3",
+            ),
+        )
+    }
 }
 
 private fun strokeIcon(name: String, pathData: List<String>): ImageVector {

@@ -62,4 +62,16 @@ object PulseSizes {
     val selectionCheckMark = 13.dp
     val selectionStroke = 2.dp
     val sendCircle = 40.dp
+
+    /** Conversation media-attachment tiles (M4c S24). */
+    val attachmentTile = 56.dp
+
+    /** Thumbnail strip tile in the media review sheet (M4c S25). */
+    val attachmentStrip = 52.dp
+
+    /** Simulated camera shutter diameter (M4c S26). */
+    val cameraShutter = 78.dp
+
+    /** Fixed 16:9 preview height in the media review sheet (M4c S25). */
+    val videoPreviewHeight = 220.dp
 }

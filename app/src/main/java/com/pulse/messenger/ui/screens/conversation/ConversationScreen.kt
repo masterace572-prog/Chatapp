@@ -3,7 +3,13 @@ package com.pulse.messenger.ui.screens.conversation
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.MediaStore
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -72,9 +78,14 @@ import com.pulse.messenger.domain.model.User
 import com.pulse.messenger.ui.components.AppBottomSheet
 import com.pulse.messenger.ui.icons.AppIcons
 import com.pulse.messenger.ui.components.BubbleQuoteData
+import com.pulse.messenger.ui.components.AttachmentTile
+import com.pulse.messenger.ui.components.AttachmentTray
+import com.pulse.messenger.ui.components.attachmentTileLabel
+import com.pulse.messenger.ui.components.CameraSimOverlay
 import com.pulse.messenger.ui.components.ChatHeader
 import com.pulse.messenger.ui.components.ChatHeaderAction
 import com.pulse.messenger.ui.components.ChatHeaderStatus
+import com.pulse.messenger.ui.components.ComposerUiState
 import com.pulse.messenger.ui.components.ConfirmDialog
 import com.pulse.messenger.ui.components.DateSeparator
 import com.pulse.messenger.ui.components.EmptyState
@@ -85,11 +96,15 @@ import com.pulse.messenger.ui.components.MessageActionItem
 import com.pulse.messenger.ui.components.MessageActionSheet
 import com.pulse.messenger.ui.components.MessageBubble
 import com.pulse.messenger.ui.components.MessageComposer
+import com.pulse.messenger.ui.components.MediaDraft
+import com.pulse.messenger.ui.components.MediaItemDraft
+import com.pulse.messenger.ui.components.MediaSendSheet
 import com.pulse.messenger.ui.components.MultiSelectTopBar
 import com.pulse.messenger.ui.components.PinnedBanner
 import com.pulse.messenger.ui.components.PinnedBannerData
 import com.pulse.messenger.ui.components.QuickReactionBar
 import com.pulse.messenger.ui.components.ReactorUi
+import com.pulse.messenger.ui.components.RecentMediaItem
 import com.pulse.messenger.ui.components.ReactorsSheetContent
 import com.pulse.messenger.ui.components.SelectionCheck
 import com.pulse.messenger.ui.components.SystemMessageRow
@@ -179,6 +194,8 @@ fun ConversationScreen(
         onVm = VmBridge(
             retry = vm::retry,
             send = vm::send,
+            sendImages = vm::sendImages,
+            sendVideo = vm::sendVideo,
             toggleReaction = vm::toggleReaction,
             toggleStar = vm::toggleStar,
             pin = vm::pinMessage,
@@ -207,6 +224,8 @@ fun ConversationScreen(
 internal class VmBridge(
     val retry: (String) -> Unit,
     val send: () -> Unit,
+    val sendImages: (List<String>, String?) -> Unit,
+    val sendVideo: (String, Int, String?) -> Unit,
     val toggleReaction: (String, String) -> Unit,
     val toggleStar: (String) -> Unit,
     val pin: (String) -> Unit,
@@ -259,6 +278,13 @@ internal fun ConversationContent(
     var voicePlayingId by remember { mutableStateOf<String?>(null) }
     val density = LocalDensity.current
 
+    // ---- M4c attachment flows (S24-S26): ephemeral UI state. ----
+    var showTray by remember { mutableStateOf(false) }
+    var cameraOpen by remember { mutableStateOf(false) }
+    var mediaDraft by remember { mutableStateOf<MediaDraft?>(null) }
+    var pendingAdd by remember { mutableStateOf(false) }
+    var recentMedia by remember { mutableStateOf<List<RecentMediaItem>>(emptyList()) }
+
     val chat = state.chat
     val overlayMessage = state.actionMessageId?.let { id ->
         state.rows.filterIsInstance<ConversationRow.MessageItem>()
@@ -284,6 +310,110 @@ internal fun ConversationContent(
         snack(context.getString(R.string.conversation_copied))
     }
 
+    // ---- M4c media flows (S24-S26) ----
+    fun addRecent(item: RecentMediaItem) {
+        recentMedia = (listOf(item) + recentMedia.filterNot { it.uri == item.uri }).take(12)
+    }
+
+    fun videoDurationSeconds(uri: Uri): Int = runCatching {
+        context.contentResolver.query(
+            uri,
+            arrayOf(MediaStore.Video.VideoColumns.DURATION),
+            null,
+            null,
+            null,
+        )?.use { c ->
+            if (c.moveToFirst()) (c.getLong(0) / 1000L).toInt() else 0
+        } ?: 0
+    }.getOrDefault(0)
+
+    val pickLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(maxItems = 10),
+    ) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        // Photo Picker grants last for the process; keep them for the send.
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            uris.forEach { uri ->
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    )
+                }
+            }
+        }
+        val picked = uris.map { uri ->
+            val mime = runCatching { context.contentResolver.getType(uri) }.getOrNull().orEmpty()
+            val video = mime.startsWith("video/")
+            MediaItemDraft(
+                uri = uri.toString(),
+                isVideo = video,
+                durationSeconds = if (video) videoDurationSeconds(uri) else 0,
+            )
+        }
+        val base = if (pendingAdd) mediaDraft?.items.orEmpty() else emptyList()
+        val merged = base + picked
+        if (merged.isEmpty()) return@rememberLauncherForActivityResult
+        pendingAdd = false
+        if (merged.size > 10) {
+            Toast.makeText(
+                context,
+                context.getString(R.string.conversation_media_too_many),
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+        val kept = merged.take(10)
+        mediaDraft = MediaDraft(kept)
+        showTray = false
+        recentMedia = (
+            kept.map { RecentMediaItem(it.uri, it.isVideo, it.durationSeconds) } + recentMedia
+            ).distinctBy { it.uri }.take(12)
+    }
+
+    fun launchGalleryPicker() {
+        pickLauncher.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo),
+        )
+    }
+
+    fun openCamera() {
+        cameraOpen = true
+        showTray = false
+    }
+
+    fun submitDraft(draft: MediaDraft, caption: String) {
+        val bridge = onVm
+        if (bridge != null) {
+            val cap = caption.takeIf { it.isNotBlank() }
+            val images = draft.items.filterNot { it.isVideo }.map { it.uri }
+            val videos = draft.items.filter { it.isVideo }
+            if (images.isNotEmpty()) {
+                bridge.sendImages(images, cap)
+                videos.forEach { v -> bridge.sendVideo(v.uri, v.durationSeconds, null) }
+            } else {
+                videos.forEachIndexed { i, v ->
+                    bridge.sendVideo(v.uri, v.durationSeconds, if (i == 0) cap else null)
+                }
+            }
+        }
+        mediaDraft = null
+    }
+
+    fun onAttachmentTile(tile: AttachmentTile) {
+        when (tile) {
+            AttachmentTile.Camera -> openCamera()
+            AttachmentTile.Gallery -> launchGalleryPicker()
+            else -> toastComingSoon(context, attachmentTileLabel(tile))
+        }
+    }
+
+    fun onRecentTap(item: RecentMediaItem) {
+        mediaDraft = MediaDraft(
+            listOf(MediaItemDraft(item.uri, item.isVideo, item.durationSeconds)),
+        )
+        showTray = false
+    }
+
     fun doForward(ids: List<String>) {
         forwardIds = ids
     }
@@ -307,6 +437,15 @@ internal fun ConversationContent(
     }
     BackHandler(enabled = state.selectionMode && overlayMessage == null) {
         onVm?.exitSelection?.invoke()
+    }
+    BackHandler(enabled = showTray) {
+        showTray = false
+    }
+    BackHandler(enabled = mediaDraft != null) {
+        mediaDraft = null
+    }
+    BackHandler(enabled = cameraOpen) {
+        cameraOpen = false
     }
 
     // Scroll-to target (reply quote / pinned banner taps).
@@ -450,14 +589,34 @@ internal fun ConversationContent(
 
             // Composer (full M4b surface) - hidden while overlay/selection.
             if (overlayMessage == null && !state.selectionMode) {
-                MessageComposer(
+                Column {
+                    if (showTray) {
+                        AttachmentTray(
+                            recent = recentMedia,
+                            onTile = { tile -> onAttachmentTile(tile) },
+                            onRecent = { item -> onRecentTap(item) },
+                        )
+                    }
+                    MessageComposer(
                     state = state.composer,
                     value = state.draftText,
                     onValueChange = callbacks.onDraftChange,
                     mentionMembers = state.mentionMembers,
                     onSend = callbacks.onSend,
-                    onAttachment = callbacks.onAttachment,
-                    onCamera = callbacks.onCamera,
+                    onAttachment = {
+                        if (onVm != null) {
+                            showTray = !showTray
+                        } else {
+                            callbacks.onAttachment()
+                        }
+                    },
+                    onCamera = {
+                        if (onVm != null) {
+                            openCamera()
+                        } else {
+                            callbacks.onCamera()
+                        }
+                    },
                     onMicPress = callbacks.onMicPress,
                     onRecordCancel = callbacks.onRecordCancel,
                     onRecordLock = callbacks.onRecordLock,
@@ -468,6 +627,7 @@ internal fun ConversationContent(
                     onUnblock = callbacks.onUnblock,
                     modifier = Modifier.navigationBarsPadding(),
                 )
+                }
             }
         }
 
@@ -736,6 +896,54 @@ internal fun ConversationContent(
                     onVm?.setBlocked?.invoke(true)
                 },
                 onDismiss = { confirmBlockChat = false },
+            )
+        }
+
+        // ---- M4c full-screen media surfaces (S24-S26) ----
+        mediaDraft?.let { draft ->
+            val reply = state.composer as? ComposerUiState.Reply
+            MediaSendSheet(
+                draft = draft,
+                onDismiss = { mediaDraft = null },
+                onSend = { caption -> submitDraft(draft, caption) },
+                onAddMore = {
+                    pendingAdd = true
+                    launchGalleryPicker()
+                },
+                onRemove = { index ->
+                    val rest = draft.items.toMutableList()
+                    rest.removeAt(index)
+                    mediaDraft = if (rest.isEmpty()) null else MediaDraft(rest)
+                },
+                replyTitle = reply?.senderName,
+                replyExcerpt = reply?.excerpt,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        if (cameraOpen) {
+            CameraSimOverlay(
+                onClose = { cameraOpen = false },
+                onPhoto = { uri ->
+                    cameraOpen = false
+                    addRecent(RecentMediaItem(uri = uri, isVideo = false))
+                    mediaDraft = MediaDraft(
+                        listOf(MediaItemDraft(uri = uri, isVideo = false)),
+                    )
+                },
+                onVideo = { uri, seconds ->
+                    cameraOpen = false
+                    addRecent(RecentMediaItem(uri = uri, isVideo = true, durationSeconds = seconds))
+                    mediaDraft = MediaDraft(
+                        listOf(MediaItemDraft(uri = uri, isVideo = true, durationSeconds = seconds)),
+                    )
+                },
+                onVideoTooShort = {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.conversation_camera_video_too_short),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                },
             )
         }
     }

@@ -788,3 +788,63 @@ private fun M4cLinkPreviewPreview() {
         }
     }
 }
+
+@Preview(name = "M4c · Attachment tray (light)", showBackground = true, widthDp = 400)
+@Preview(name = "M4c · Attachment tray (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun M4cAttachmentTrayPreview() {
+    PreviewHost {
+        Column(Modifier.padding(vertical = PulseSpacing.sm)) {
+            AttachmentTray(
+                recent = listOf(
+                    RecentMediaItem("sample://photos/photo_hills.jpg", isVideo = false),
+                    RecentMediaItem("sample://videos/sample_video_1.mp4", isVideo = true, durationSeconds = 6),
+                    RecentMediaItem("sample://photos/photo_books.jpg", isVideo = false),
+                    RecentMediaItem("sample://photos/photo_tea.jpg", isVideo = false),
+                ),
+                onTile = {},
+                onRecent = {},
+            )
+            AttachmentTray(recent = emptyList(), onTile = {}, onRecent = {})
+        }
+    }
+}
+
+@Preview(name = "M4c · Media review/caption sheet (light)", showBackground = true, widthDp = 400)
+@Preview(name = "M4c · Media review/caption sheet (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun M4cMediaSendSheetPreview() {
+    PreviewHost {
+        MediaSendSheet(
+            draft = MediaDraft(
+                listOf(
+                    MediaItemDraft("sample://photos/photo_hills.jpg", isVideo = false),
+                    MediaItemDraft("sample://videos/sample_video_1.mp4", isVideo = true, durationSeconds = 6),
+                    MediaItemDraft("sample://photos/photo_tea.jpg", isVideo = false),
+                ),
+            ),
+            onDismiss = {},
+            onSend = {},
+            onAddMore = {},
+            onRemove = {},
+            replyTitle = "Noah Khan",
+            replyExcerpt = "That looks great!",
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Preview(name = "M4c · Camera simulation (light)", showBackground = true, widthDp = 400, heightDp = 700)
+@Preview(name = "M4c · Camera simulation (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400, heightDp = 700)
+@Composable
+private fun M4cCameraSimPreview() {
+    PreviewHost {
+        CameraSimOverlay(
+            onClose = {},
+            onPhoto = {},
+            onVideo = { _, _ -> },
+            onVideoTooShort = {},
+            modifier = Modifier.fillMaxWidth().height(700.dp),
+        )
+    }
+}

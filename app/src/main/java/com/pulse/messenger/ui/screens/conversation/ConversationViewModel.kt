@@ -489,6 +489,44 @@ class ConversationViewModel @Inject constructor(
         replyId.value = null
     }
 
+    /* ---------- Media & rich sends (M4c S24-S26) ---------- */
+
+    /** Sends picked/captured photos as one grid message (1..10 uris). */
+    fun sendImages(uris: List<String>, caption: String?) {
+        if (uris.isEmpty()) return
+        val replying = replyId.value
+        replyId.value = null
+        editId.value = null
+        draftText.value = ""
+        unreadMarker.value = 0
+        viewModelScope.launch {
+            chatRepository.sendImages(
+                chatId,
+                uris,
+                caption = caption?.trim()?.takeIf { it.isNotEmpty() },
+                replyToMessageId = replying,
+            )
+        }
+    }
+
+    /** Sends one video (camera simulation / picker) as a video message. */
+    fun sendVideo(uri: String, durationSeconds: Int, caption: String?) {
+        val replying = replyId.value
+        replyId.value = null
+        editId.value = null
+        draftText.value = ""
+        unreadMarker.value = 0
+        viewModelScope.launch {
+            chatRepository.sendVideo(
+                chatId,
+                uri,
+                durationSeconds = durationSeconds,
+                caption = caption?.trim()?.takeIf { it.isNotEmpty() },
+                replyToMessageId = replying,
+            )
+        }
+    }
+
     /* ---------- Voice recording (M4b) ---------- */
 
     fun recordStart() {
