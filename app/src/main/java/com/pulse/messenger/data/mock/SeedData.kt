@@ -25,6 +25,13 @@ import kotlin.random.Random
  * location/contact/poll/sticker carry payload data; only text/system render in
  * M4a), links, edited + deleted examples, reactions data and unread tails.
  *
+ * M4b additions: pinned messages (every group carries at least one pin;
+ * direct chats demo pin cycling), starred messages, reply quotes (including
+ * replies to non-text content), richer reaction seeds, a read-only group
+ * (permissions.sendMessages = false) and deep histories: five chats reach
+ * back 7-12 days so weekday and full-date separators render while recent
+ * chats keep Today/Yesterday activity.
+ *
  * Generation is deterministic: a fixed seed per chat reproduces the same
  * conversation on every launch, while timestamps are anchored to the moment
  * the object first loads (recent chats end minutes before "now"; archived
@@ -115,7 +122,11 @@ object SeedData {
     /** Chats, built with end-anchored metadata (times relative to load). */
     private val chatSpecs: List<Pair<Chat, Long /* endAgoMinutes */>> = listOf(
         // 1:1 chats (kept from M3; order = list sort baseline by recency).
-        chat("c-aria", ChatKind.Direct, listOf("me", "u-aria"), avatarSeed = 1, endAgoMin = 4),
+        chat(
+            "c-aria", ChatKind.Direct, listOf("me", "u-aria"),
+            avatarSeed = 1, endAgoMin = 4,
+            pinnedMessageIds = listOf("sc-aria-013", "sc-aria-034"),
+        ),
         chat("c-noah", ChatKind.Direct, listOf("me", "u-noah"), avatarSeed = 2, endAgoMin = 75),
         chat("c-iva", ChatKind.Direct, listOf("me", "u-iva"), pinned = true, avatarSeed = 7, endAgoMin = 310),
         chat("c-dev", ChatKind.Direct, listOf("me", "u-dev"), avatarSeed = 4, endAgoMin = 95),
@@ -144,6 +155,7 @@ object SeedData {
                 "u-sam" to ChatRole.Member,
                 "u-nina" to ChatRole.Member,
             ),
+            pinnedMessageIds = listOf("sc-design-025"),
         ),
         chat(
             "c-roadtrip", ChatKind.Group, listOf("me", "u-dev", "u-zara", "u-kabir", "u-rao", "u-omar"),
@@ -158,6 +170,7 @@ object SeedData {
                 "u-rao" to ChatRole.Member,
                 "u-omar" to ChatRole.Member,
             ),
+            pinnedMessageIds = listOf("sc-roadtrip-027"),
         ),
         chat(
             "c-fam", ChatKind.Group, listOf("me", "u-nina", "u-rohan", "u-ana", "u-mira"),
@@ -171,6 +184,7 @@ object SeedData {
                 "u-ana" to ChatRole.Member,
                 "u-mira" to ChatRole.Member,
             ),
+            pinnedMessageIds = listOf("sc-fam-008"),
         ),
         chat(
             "c-run", ChatKind.Group, listOf("me", "u-iva", "u-tara", "u-sam"),
@@ -183,6 +197,9 @@ object SeedData {
                 "u-tara" to ChatRole.Admin,
                 "u-sam" to ChatRole.Member,
             ),
+            pinnedMessageIds = listOf("sc-run-023"),
+            // Read-only demo (M4b): only admins can send here (me is a Member).
+            permissions = ChatPermissions(sendMessages = false),
         ),
     )
 
@@ -201,6 +218,8 @@ object SeedData {
         description: String? = null,
         createdBy: String? = null,
         members: Map<String, ChatRole> = emptyMap(),
+        pinnedMessageIds: List<String> = emptyList(),
+        permissions: ChatPermissions = ChatPermissions(),
     ) = Chat(
         id = id,
         kind = kind,
@@ -221,7 +240,8 @@ object SeedData {
         } else {
             emptyList()
         },
-        permissions = ChatPermissions(),
+        pinnedMessageIds = pinnedMessageIds,
+        permissions = permissions,
     ) to endAgoMin
 
     /* ---------- Message history generator (M4a) ---------- */
@@ -234,6 +254,7 @@ object SeedData {
         val replyToMessageId: String? = null,
         val isEdited: Boolean = false,
         val isDeleted: Boolean = false,
+        val isStarred: Boolean = false,
         val reactions: List<MessageReaction> = emptyList(),
     )
 
@@ -246,6 +267,7 @@ object SeedData {
         val status: MessageStatus = MessageStatus.Read,
         val isEdited: Boolean = false,
         val isDeleted: Boolean = false,
+        val isStarred: Boolean = false,
         val reactions: List<MessageReaction> = emptyList(),
         val replyToPrevious: Boolean = false,
     )
@@ -491,14 +513,15 @@ object SeedData {
             RichSpec(12, MessageContent.Voice(21, wave(24, 101)), reactions = listOf(MessageReaction("❤️", listOf("u-aria", "me")))),
             RichSpec(19, MessageContent.Text("https://material.io/design/color/dark-theme.html")),
             RichSpec(24, MessageContent.Image(listOf("sample://aria/dark-dividers.png"), widthPx = 1080, heightPx = 1080)),
-            RichSpec(33, MessageContent.Text("Check the divider contrast in dark mode."), isEdited = true),
+            RichSpec(13, MessageContent.Text("Love this voice note - keeping it for the review."), replyToPrevious = true),
+            RichSpec(33, MessageContent.Text("Check the divider contrast in dark mode."), isEdited = true, isStarred = true),
             RichSpec(35, MessageContent.Text("This thread keeps a deleted note below.")),
             RichSpec(36, MessageContent.Text("Old note"), isDeleted = true),
         )
         "c-noah" -> listOf(
             RichSpec(4, MessageContent.Text("https://github.com/pulse-app/releases/releases/tag/debug-0.1.0")),
             RichSpec(15, MessageContent.File("pulse-debug.apk", 12_008_455, "application/vnd.android.package-archive")),
-            RichSpec(21, MessageContent.Text("APK is in the artifact, grab it."), replyToPrevious = true),
+            RichSpec(21, MessageContent.Text("APK is in the artifact, grab it."), replyToPrevious = true, isStarred = true),
             RichSpec(26, MessageContent.Text("Fixing the icon overlap now."), isEdited = true),
         )
         "c-iva" -> listOf(
@@ -530,7 +553,7 @@ object SeedData {
             RichSpec(16, MessageContent.Voice(9, wave(12, 404))),
         )
         "c-assistant" -> listOf(
-            RichSpec(3, MessageContent.Text("Psst - this chat always replies. Try sending anything."), reactions = listOf(MessageReaction("👋", listOf("u-pulse", "me")))),
+            RichSpec(3, MessageContent.Text("Psst - this chat always replies. Try sending anything."), isStarred = true, reactions = listOf(MessageReaction("👋", listOf("u-pulse", "me")))),
             RichSpec(11, MessageContent.Text("Here is a link to try: https://pulse.example.com/guide")),
             RichSpec(18, MessageContent.Sticker("pulse-wave")),
         )
@@ -544,6 +567,7 @@ object SeedData {
             RichSpec(9, MessageContent.Image(listOf("sample://design/tokens-v3.png"), caption = "Token sheet v3", widthPx = 1400, heightPx = 900)),
             RichSpec(16, MessageContent.Voice(28, wave(20, 505))),
             RichSpec(24, MessageContent.File("component-matrix.xlsx", 268_435, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")),
+            RichSpec(25, MessageContent.Text("Thanks for the matrix!"), replyToPrevious = true),
             RichSpec(31, MessageContent.Text("See the radii in the spec: https://pulse.example.com/spec/shapes")),
             RichSpec(38, MessageContent.Text("Bubble radii updated"), isEdited = true),
             RichSpec(40, MessageContent.Text("Closing this thread for the demo"), reactions = listOf(MessageReaction("👍", listOf("u-aria", "u-sam", "me")))),
@@ -558,7 +582,8 @@ object SeedData {
             RichSpec(10, MessageContent.Text("https://example.com/roadtrip/route-map-goa")),
             RichSpec(17, MessageContent.Location(18.6046, 73.7600, "Lonavala ghat viewpoint")),
             RichSpec(26, MessageContent.Image(listOf("sample://roadtrip/beach-house.jpg"), caption = "The beach house", widthPx = 1600, heightPx = 900)),
-            RichSpec(34, MessageContent.Voice(26, wave(18, 606))),
+            RichSpec(34, MessageContent.Voice(26, wave(18, 606)), reactions = listOf(MessageReaction("👍", listOf("u-dev", "u-kabir")))),
+            RichSpec(36, MessageContent.Text("Count me in for the late train too."), reactions = listOf(MessageReaction("😮", listOf("u-omar")), MessageReaction("🔥", listOf("me")))),
             RichSpec(39, MessageContent.Location(15.2993, 74.0760, "Jetty seafood place, Goa")),
         )
         "c-fam" -> listOf(
@@ -574,7 +599,7 @@ object SeedData {
                 multipleAnswers = false,
             )),
             RichSpec(19, MessageContent.Image(listOf("sample://fam/park-walk.jpg"), widthPx = 1200, heightPx = 800)),
-            RichSpec(28, MessageContent.Text("Poll is live for next month too.")),
+            RichSpec(28, MessageContent.Text("Poll is live for next month too."), isStarred = true),
         )
         "c-run" -> listOf(
             RichSpec(0, MessageContent.System("Iva created the group"), actor = "u-iva"),
@@ -589,21 +614,45 @@ object SeedData {
         else -> emptyList()
     }
 
+    /**
+     * Chats whose history reaches back 7-12 days (weekday + full-date pills)
+     * while still ending recently, so Today/Yesterday stay visible too.
+     */
+    private val deepHistoryDays: Map<String, Int> = mapOf(
+        "c-noah" to 7,
+        "c-mira" to 8,
+        "c-fam" to 9,
+        "c-rohan" to 10,
+        "c-lea" to 12,
+    )
+
     /** Builds one chat's history (ascending). Deterministic per chat id. */
     private fun buildConversation(chat: Chat, endAgoMinutes: Long, count: Int): List<Message> {
         val rng = Random(chat.id.hashCode())
         val peers = chat.participantIds.filter { it != "me" }
         val pool = messagePool(chat.id)
 
-        // Wall-clock: histories always span >= 2 days (several nights) so
-        // Today / Yesterday / weekday / full-date separators all show up.
+        // Wall-clock: histories span >= 2 days by default (several nights);
+        // deep-history chats add multi-day pauses so weekday and full-date
+        // separators render while recent chats keep Today/Yesterday activity.
         val endMillis = now() - endAgoMinutes * MINUTE
-        val targetSpanMillis = 2 * DAY + 7 * HOUR
+        val targetSpanMillis = (deepHistoryDays[chat.id]?.times(DAY)) ?: (2 * DAY + 7 * HOUR)
         val nightGapMillis = rng.nextLong(9, 12) * HOUR
         val nights = (targetSpanMillis / nightGapMillis).toInt().coerceIn(3, 5)
         val nightAfter = (1..nights).map { (it * count) / (nights + 1) }.filter { it < count - 1 }.toSet()
         val gapMinutesList = (0 until count).map { i ->
             if (i in nightAfter) gapMinutes(rng, nightBias = true) else gapMinutes(rng, nightBias = false)
+        }.toMutableList()
+        val baseTotalMillis = gapMinutesList.sum() * MINUTE
+        if (targetSpanMillis > baseTotalMillis) {
+            // Spread 24-40h pauses across the conversation until the span is met.
+            val extraHours = (targetSpanMillis - baseTotalMillis) / HOUR
+            val pauses = (extraHours / 32).toInt().coerceIn(1, count / 4)
+            val step = count / (pauses + 1)
+            for (k in 1..pauses) {
+                val at = (k * step).coerceIn(1, count - 2)
+                gapMinutesList[at] += rng.nextLong(24, 41) * HOUR / MINUTE
+            }
         }
         val totalMillis = gapMinutesList.sum() * MINUTE
         val startMillis = endMillis - totalMillis
@@ -651,6 +700,7 @@ object SeedData {
                 replyToMessageId = if (spec?.replyToPrevious == true) prevId else null,
                 isEdited = spec?.isEdited ?: false,
                 isDeleted = spec?.isDeleted ?: false,
+                isStarred = spec?.isStarred ?: false,
                 reactions = spec?.reactions ?: emptyList(),
             )
             val id = "s${chat.id}-${String.format("%03d", i + 1)}"
@@ -680,6 +730,7 @@ object SeedData {
                 replyToMessageId = draft.replyToMessageId,
                 isEdited = draft.isEdited,
                 isDeleted = draft.isDeleted,
+                isStarred = draft.isStarred,
                 reactions = draft.reactions,
             )
         }

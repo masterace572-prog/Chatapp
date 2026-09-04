@@ -3,6 +3,7 @@ package com.pulse.messenger.domain.repository
 import com.pulse.messenger.domain.model.Chat
 import com.pulse.messenger.domain.model.ChatSummary
 import com.pulse.messenger.domain.model.Message
+import com.pulse.messenger.domain.model.User
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -70,6 +71,47 @@ interface ChatRepository {
 
     /** Saves the unsent composer text; empty string clears the draft (S19 prefix). */
     suspend fun setDraft(chatId: String, text: String)
+
+    /* ---------- Message actions (M4b: reply/edit/delete/reactions/pin) ---------- */
+
+    /** Replaces the text of a sent message and marks it [Message.isEdited]. */
+    suspend fun editMessage(messageId: String, newText: String)
+
+    /**
+     * Deletes a message. forEveryone marks it [Message.isDeleted] so peers'
+     * clients render "This message was deleted"; forMe removes it from this
+     * user's copy of the chat (the mock keeps one store, so the deletion is
+     * simply applied to the local history).
+     */
+    suspend fun deleteMessage(messageId: String, forEveryone: Boolean)
+
+    /** Adds the current user to (or removes them from) a reaction's user ids. */
+    suspend fun toggleReaction(messageId: String, emoji: String)
+
+    suspend fun setStarred(messageId: String, starred: Boolean)
+
+    /** Pins/unpins a message id on the chat (drives the S23 pinned banner). */
+    suspend fun pinMessage(chatId: String, messageId: String)
+    suspend fun unpinMessage(chatId: String, messageId: String)
+
+    /**
+     * Copies messages into each target chat with forwardedFromUserId set to
+     * the original sender (own messages keep no forwarded label). A non-blank
+     * [comment] is appended to each target as a separate text message.
+     */
+    suspend fun forwardMessages(messageIds: List<String>, targetChatIds: List<String>, comment: String?)
+
+    /**
+     * Sends a voice note built from the recorded duration + waveform samples
+     * (the mock does not need a real microphone; M4c wires real audio).
+     */
+    suspend fun sendVoice(chatId: String, durationMs: Long, waveformSamples: List<Int>, replyToMessageId: String? = null): String
+
+    /** Blocks/unblocks a conversation (composer state + mock reply gating). */
+    suspend fun setBlocked(chatId: String, blocked: Boolean)
+
+    /** People mentionable in a group chat (members, excluding the current user). */
+    fun observeMentionCandidates(chatId: String): Flow<List<User>>
 
     /* ---------- Chat list actions (mock/local state, M3) ---------- */
 

@@ -5,6 +5,7 @@ import com.pulse.messenger.domain.model.ChatKind
 import com.pulse.messenger.domain.model.ChatSummary
 import com.pulse.messenger.domain.model.Message
 import com.pulse.messenger.domain.model.MessageContent
+import com.pulse.messenger.domain.model.MessageReaction
 import com.pulse.messenger.domain.model.MessageStatus
 import com.pulse.messenger.domain.model.User
 import com.pulse.messenger.domain.repository.ChatRepository
@@ -35,6 +36,17 @@ import kotlin.random.Random
  *    screen (see [setActiveConversation]); opening a chat clears the badge;
  *  - typing simulation on [SeedData.typingChatId] keeps lists alive;
  *  - drafts mutate (S19 prefix) via [setDraft].
+ *
+ * M4b behaviors:
+ *  - message actions edit/delete (for me or everyone)/star/pin; reactions
+ *    toggle the current user in/out of a reaction's user ids;
+ *  - ≈15% of delivered messages in auto-reply chats earn a random reaction
+ *    1-3s after delivery, so reaction rows appear organically;
+ *  - forwarding copies messages (with forwardedFromUserId) into targets and
+ *    optionally appends a comment; voice notes are created from a recorded
+ *    duration + simulated waveform samples;
+ *  - blocking a chat stops incoming auto-replies/reactions (composer state
+ *    swaps to the blocked row in the UI).
  */
 @Singleton
 class MockChatRepository @Inject constructor(
@@ -120,6 +132,9 @@ class MockChatRepository @Inject constructor(
             "Sounds perfect.",
         ),
     )
+
+    /** Emoji pool for the ≈15% automatic reactions (M4b). */
+    private val reactionPool = listOf("👍", "❤️", "😂", "😮", "🔥", "👏")
 
     private fun user(id: String): User = SeedData.user(id)
 
@@ -250,6 +265,27 @@ class MockChatRepository @Inject constructor(
         // SENT -> DELIVERED (+0.5-1.5s)
         delay(Random.nextLong(500, 1500))
         updateStatus(chatId, messageId, MessageStatus.Delivered)
+        // Blocked chats stop all incoming behaviour (M4b).
+        if (_chatState.value[chatId]?.chat?.isBlocked == true) return
+        // M4b: ~15% of delivered messages earn a reaction 1-3s later.
+        if (chatId in autoReplyChats && Random.nextInt(100) < 15) {
+            delay(Random.nextLong(1000, 3000))
+            val emoji = reactionPool[Random.nextInt(reactionPool.size)]
+            val reactor = replySender(chat)
+            updateMessage(chatId, messageId) { m ->
+                m.copy(
+                    reactions = if (m.reactions.any { it.emoji == emoji }) {
+                        m.reactions.map {
+                            if (it.emoji == emoji && reactor !in it.userIds) {
+                                it.copy(userIds = it.userIds + reactor)
+                            } else it
+                        }
+                    } else {
+                        m.reactions + MessageReaction(emoji, listOf(reactor))
+                    },
+                )
+            }
+        }
         // DELIVERED -> READ (+1-3s) only when the chat is "online".
         if (isOnline(chat)) {
             delay(Random.nextLong(1000, 3000))
@@ -340,6 +376,168 @@ class MockChatRepository @Inject constructor(
         }
         rebuild()
     }
+
+    /* ---------- M4b message actions ---------- */
+
+    private fun updateMessage(chatId: String, messageId: String, block: (Message) -> Message) {
+        _messages.value = _messages.value.toMutableMap().apply {
+            val list = get(chatId).orEmpty()
+            put(chatId, list.map { if (it.id == messageId) block(it) else it })
+        }
+        rebuild()
+    }
+
+    override suspend fun editMessage(messageId: String, newText: String) {
+        val entry = findMessage(messageId) ?: return
+        val trimmed = newText.trim()
+        if (trimmed.isEmpty() || entry.message.senderId != "me") return
+        updateMessage(entry.chatId, messageId) {
+            it.copy(content = MessageContent.Text(trimmed), isEdited = true)
+        }
+    }
+
+    override suspend fun deleteMessage(messageId: String, forEveryone: Boolean) {
+        val entry = findMessage(messageId) ?: return
+        mutate(entry.chatId) {
+            it.chat = it.chat.copy(pinnedMessageIds = it.chat.pinnedMessageIds - messageId)
+        }
+        if (forEveryone) {
+            updateMessage(entry.chatId, messageId) {
+                it.copy(isDeleted = true, reactions = emptyList(), isStarred = false)
+            }
+        } else {
+            // "Delete for me": gone from this user's copy of the chat.
+            _messages.value = _messages.value.toMutableMap().apply {
+                val list = get(entry.chatId).orEmpty()
+                put(entry.chatId, list.filterNot { m -> m.id == messageId })
+            }
+            rebuild()
+        }
+    }
+
+    override suspend fun toggleReaction(messageId: String, emoji: String) {
+        val entry = findMessage(messageId) ?: return
+        if (entry.message.isDeleted) return
+        updateMessage(entry.chatId, messageId) { m ->
+            val existing = m.reactions.firstOrNull { it.emoji == emoji }
+            val next = when {
+                existing == null -> m.reactions + MessageReaction(emoji, listOf("me"))
+                "me" in existing.userIds -> m.reactions
+                    .map { if (it.emoji == emoji) it.copy(userIds = it.userIds - "me") else it }
+                    .filter { it.userIds.isNotEmpty() }
+                else -> m.reactions
+                    .map { if (it.emoji == emoji) it.copy(userIds = it.userIds + "me") else it }
+            }
+            m.copy(reactions = next)
+        }
+    }
+
+    override suspend fun setStarred(messageId: String, starred: Boolean) {
+        val entry = findMessage(messageId) ?: return
+        updateMessage(entry.chatId, messageId) { it.copy(isStarred = starred) }
+    }
+
+    override suspend fun pinMessage(chatId: String, messageId: String) {
+        mutate(chatId) { st ->
+            val chat = st.chat
+            if (messageId !in chat.pinnedMessageIds) {
+                st.chat = chat.copy(
+                    pinnedMessageIds = (listOf(messageId) + chat.pinnedMessageIds).take(5),
+                )
+            }
+        }
+    }
+
+    override suspend fun unpinMessage(chatId: String, messageId: String) {
+        mutate(chatId) { st ->
+            st.chat = st.chat.copy(pinnedMessageIds = st.chat.pinnedMessageIds - messageId)
+        }
+    }
+
+    override suspend fun forwardMessages(
+        messageIds: List<String>,
+        targetChatIds: List<String>,
+        comment: String?,
+    ) {
+        val originals = messageIds
+            .mapNotNull { findMessage(it)?.message }
+            .filterNot { it.isDeleted || it.isSystem }
+        for (target in targetChatIds) {
+            val chat = _chatState.value[target]?.chat ?: continue
+            for (original in originals) {
+                // Own messages are not marked "Forwarded" (they carry no label).
+                val fromPeer = original.senderId != "me"
+                val id = "m-${System.currentTimeMillis()}-f${sendCounter++}"
+                appendMessage(
+                    Message(
+                        id = id,
+                        chatId = target,
+                        senderId = "me",
+                        content = original.content,
+                        sentAtMillis = System.currentTimeMillis(),
+                        status = MessageStatus.Sending,
+                        isOutgoing = true,
+                        forwardedFromUserId = if (fromPeer) original.senderId else null,
+                    ),
+                )
+                clearUnread(target)
+                scope.launch { runPipeline(target, id, chat, willFail = false) }
+            }
+            val trimmed = comment?.trim()
+            if (!trimmed.isNullOrEmpty()) {
+                sendText(target, trimmed)
+            }
+        }
+    }
+
+    override suspend fun sendVoice(
+        chatId: String,
+        durationMs: Long,
+        waveformSamples: List<Int>,
+        replyToMessageId: String?,
+    ): String {
+        val state = _chatState.value[chatId] ?: return ""
+        val durationSeconds = (durationMs / 1000).toInt().coerceIn(1, 300)
+        val id = "m-${System.currentTimeMillis()}-v${sendCounter++}"
+        val samples = if (waveformSamples.isEmpty()) {
+            val rng = Random(id.hashCode())
+            List(30) { rng.nextInt(12, 96) }
+        } else {
+            waveformSamples
+        }
+        val failed = Random.nextInt(100) < 5
+        appendMessage(
+            Message(
+                id = id,
+                chatId = chatId,
+                senderId = "me",
+                content = MessageContent.Voice(durationSeconds, samples),
+                sentAtMillis = System.currentTimeMillis(),
+                status = MessageStatus.Sending,
+                isOutgoing = true,
+                replyToMessageId = replyToMessageId,
+            ),
+        )
+        clearUnread(chatId)
+        scope.launch { runPipeline(chatId, id, state.chat, failed) }
+        return id
+    }
+
+    override suspend fun setBlocked(chatId: String, blocked: Boolean) {
+        Simulator.shortDelay()
+        mutate(chatId) { it.chat = it.chat.copy(isBlocked = blocked) }
+    }
+
+    override fun observeMentionCandidates(chatId: String): Flow<List<User>> =
+        observeChat(chatId).map { chat ->
+            if (chat.kind != ChatKind.Group) {
+                emptyList()
+            } else {
+                chat.participantIds
+                    .filter { it != "me" }
+                    .mapNotNull { SeedData.usersById[it] }
+            }
+        }
 
     /* ---------- Message store helpers ---------- */
 
