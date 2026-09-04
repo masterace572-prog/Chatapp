@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Pulse demo route" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata>
+    <name>River segment - 5k morning run</name>
+    <desc>Bundled demo GPX route used by the seeded running-group chat.</desc>
+    <time>2025-08-02T06:15:00Z</time>
+  </metadata>
+  <trk>
+    <name>River 5k</name>
+    <trkseg>
+      <trkpt lat="30.7333" lon="76.7794"><ele>241</ele></trkpt>
+      <trkpt lat="30.7339" lon="76.7801"><ele>241</ele></trkpt>
+      <trkpt lat="30.7350" lon="76.7812"><ele>243</ele></trkpt>
+      <trkpt lat="30.7366" lon="76.7820"><ele>245</ele></trkpt>
+      <trkpt lat="30.7381" lon="76.7815"><ele>244</ele></trkpt>
+      <trkpt lat="30.7390" lon="76.7800"><ele>242</ele></trkpt>
+      <trkpt lat="30.7385" lon="76.7783"><ele>241</ele></trkpt>
+      <trkpt lat="30.7372" lon="76.7772"><ele>240</ele></trkpt>
+      <trkpt lat="30.7359" lon="76.7760"><ele>240</ele></trkpt>
+      <trkpt lat="30.7346" lon="76.7750"><ele>241</ele></trkpt>
+      <trkpt lat="30.7333" lon="76.7794"><ele>241</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

@@ -629,7 +629,7 @@ object SeedData {
             RichSpec(8, MessageContent.Text("https://example.com/runs/segment-river-5k")),
             RichSpec(14, MessageContent.Sticker("sticker_run")),
             RichSpec(21, MessageContent.Text("Route exported to the file below.")),
-            RichSpec(22, MessageContent.File("river-route.gpx", 18_240, "application/gpx+xml"), replyToPrevious = true),
+            RichSpec(22, MessageContent.File("river-route.gpx", 18_240, "application/gpx+xml", uri = "sample://files/sample_route.gpx"), replyToPrevious = true),
         )
         else -> emptyList()
     }

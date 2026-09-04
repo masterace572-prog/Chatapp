@@ -44,6 +44,7 @@ object SampleMedia {
         "sample_doc_pdf.pdf" to R.raw.sample_doc_pdf,
         "sample_doc_docx.docx" to R.raw.sample_doc_docx,
         "sample_audio.mp3" to R.raw.sample_audio,
+        "sample_route.gpx" to R.raw.sample_route,
     )
 
     private val stickerKeys: Map<String, Int> = mapOf(
@@ -52,10 +53,12 @@ object SampleMedia {
         "sticker_sun" to R.drawable.sticker_sun,
     )
 
-    /** Voice-note audio by duration class (seeds use 7/15/28s on purpose). */
+    /** Voice-note audio by duration class (seeds use 7/15/28s on purpose).
+     *  Buckets mirror VoicePlaybackController.rawResFor so the real clip and
+     *  any asset export agree. */
     private fun voiceRawFor(durationSeconds: Int): Int = when {
-        durationSeconds <= 7 -> R.raw.voice_note_short
-        durationSeconds <= 15 -> R.raw.voice_note_medium
+        durationSeconds <= 10 -> R.raw.voice_note_short
+        durationSeconds <= 20 -> R.raw.voice_note_medium
         else -> R.raw.voice_note_long
     }
 
