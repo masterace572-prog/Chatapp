@@ -14,6 +14,14 @@ data class User(
     val bio: String? = null,
     /** Stable seed selecting an AvatarTone in the UI - deterministic where missing. */
     val avatarSeed: Int = 0,
+    /** Presence: true while the user is reachable (mock; drives chat status lines). */
+    val isOnline: Boolean = false,
+    /** Last time the user was seen online (null = never/unknown). */
+    val lastSeenAtMillis: Long? = null,
+    /** Verified badge (PRD §5; shown next to names when true). */
+    val isVerified: Boolean = false,
+    /** Blocked from this account's perspective (data only; S27 destructive actions). */
+    val isBlocked: Boolean = false,
 ) {
     val displayName: String
         get() = if (lastName.isBlank()) firstName else "$firstName $lastName"

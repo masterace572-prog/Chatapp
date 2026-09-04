@@ -63,6 +63,70 @@ object MessageLabels {
         MessageType.Location -> "Location"
         MessageType.Contact -> "Contact"
         MessageType.Poll -> "Poll"
+        MessageType.Sticker -> "Sticker"
         MessageType.System -> null
+    }
+
+    /** Bubble label for non-text content rows (rendered as placeholders in M4a). */
+    fun bubbleLabel(type: MessageType): String = when (type) {
+        MessageType.Text -> ""
+        MessageType.System -> ""
+        else -> typeLabel(type).orEmpty()
+    }
+}
+
+/**
+ * Conversation chrome formatting (S23): bubble clocks, day pills and
+ * presence lines. English-only by design until localization (Phase 2).
+ */
+object ConversationFormat {
+    private val clockFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+    private val timeZone: ZoneId = ZoneId.systemDefault()
+
+    fun clock(millis: Long): String =
+        Instant.ofEpochMilli(millis).atZone(timeZone).format(clockFmt)
+
+    private fun dateOf(millis: Long): LocalDate =
+        Instant.ofEpochMilli(millis).atZone(timeZone).toLocalDate()
+
+    private val dayNames = listOf(
+        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+    )
+
+    private fun weekdayName(date: LocalDate): String = dayNames[date.dayOfWeek.value - 1]
+
+    /**
+     * Date-pill label: "Today", "Yesterday", weekday within the current week,
+     * otherwise "d MMM" (same year) / "d MMM yy".
+     */
+    fun dayLabel(millis: Long, nowMillis: Long = System.currentTimeMillis()): String {
+        val date = dateOf(millis)
+        val today = dateOf(nowMillis)
+        val days = java.time.temporal.ChronoUnit.DAYS.between(date, today)
+        return when {
+            days <= 0 -> "Today"
+            days == 1L -> "Yesterday"
+            days < 7 -> weekdayName(date)
+            date.year == today.year -> TimeFormat.fullDate(millis)
+            else -> Instant.ofEpochMilli(millis).atZone(timeZone)
+                .format(DateTimeFormatter.ofPattern("d MMM yy"))
+        }
+    }
+
+    /**
+     * Presence line for direct chats: "online", "last seen just now",
+     * "last seen Xm ago", "last seen Xh ago", "last seen yesterday" or
+     * "last seen d MMM". Null millis falls back to "last seen recently".
+     */
+    fun lastSeen(lastSeenAtMillis: Long?, nowMillis: Long = System.currentTimeMillis()): String {
+        val seen = lastSeenAtMillis ?: return "last seen recently"
+        val agoMinutes = (nowMillis - seen) / 60_000L
+        return when {
+            agoMinutes < 1 -> "last seen just now"
+            agoMinutes < 60 -> "last seen ${agoMinutes}m ago"
+            agoMinutes < 24 * 60 -> "last seen ${agoMinutes / 60}h ago"
+            agoMinutes < 48 * 60 -> "last seen yesterday"
+            else -> "last seen ${TimeFormat.fullDate(seen)}"
+        }
     }
 }
