@@ -17,5 +17,10 @@ captures/
 *.keystore
 keystore.properties
 
+# Locally produced debug APK at the project root.
+# The CI-generated copy lives at the repo root during the build and is uploaded
+# as the 'pulse-debug-apk' workflow artifact (never committed to git).
+pulse-debug.apk
+
 # Logs
 *.log

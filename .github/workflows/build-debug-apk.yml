@@ -37,10 +37,14 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload debug APK
+      - name: Copy debug APK to project root
+        # M1 requirement: deliverable debug APK available at the repository root.
+        run: cp app/build/outputs/apk/debug/app-debug.apk pulse-debug.apk
+
+      - name: Upload debug APK (project root)
         uses: actions/upload-artifact@v4
         with:
           name: pulse-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: pulse-debug.apk
           if-no-files-found: error
           retention-days: 14
