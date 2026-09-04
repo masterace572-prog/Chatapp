@@ -2,6 +2,7 @@ package com.pulse.messenger.data.mock
 
 import com.pulse.messenger.domain.model.Chat
 import com.pulse.messenger.domain.model.ChatKind
+import com.pulse.messenger.domain.model.LinkPreview
 import com.pulse.messenger.domain.model.ChatPermissions
 import com.pulse.messenger.domain.model.ChatRole
 import com.pulse.messenger.domain.model.GoogleAccount
@@ -256,6 +257,7 @@ object SeedData {
         val isDeleted: Boolean = false,
         val isStarred: Boolean = false,
         val reactions: List<MessageReaction> = emptyList(),
+        val linkPreview: LinkPreview? = null,
     )
 
     /** Content override injected at an absolute index of a conversation. */
@@ -270,6 +272,7 @@ object SeedData {
         val isStarred: Boolean = false,
         val reactions: List<MessageReaction> = emptyList(),
         val replyToPrevious: Boolean = false,
+        val linkPreview: LinkPreview? = null,
     )
 
     /** Wall-clock layout: minutes between messages + optional night breaks. */
@@ -506,56 +509,60 @@ object SeedData {
         return List(samples) { rng.nextInt(12, 96) }
     }
 
-    /** Rich payload slots per chat (image/video/voice/file/location/contact/poll/sticker/system). */
+    /** Rich payload slots per chat (media/voice/file/location/contact/poll/sticker/system). */
     private fun richSpecs(chatId: String, count: Int): List<RichSpec> = when (chatId) {
         "c-aria" -> listOf(
-            RichSpec(6, MessageContent.Image(listOf("sample://aria/avatar-palette.png"), caption = "New palette preview", widthPx = 1200, heightPx = 800)),
-            RichSpec(12, MessageContent.Voice(21, wave(24, 101)), reactions = listOf(MessageReaction("❤️", listOf("u-aria", "me")))),
-            RichSpec(19, MessageContent.Text("https://material.io/design/color/dark-theme.html")),
-            RichSpec(24, MessageContent.Image(listOf("sample://aria/dark-dividers.png"), widthPx = 1080, heightPx = 1080)),
+            RichSpec(6, MessageContent.Image(listOf("sample://photos/photo_palette.jpg"), caption = "New palette preview", widthPx = 1200, heightPx = 800)),
+            RichSpec(12, MessageContent.Voice(15, wave(24, 101)), reactions = listOf(MessageReaction("❤️", listOf("u-aria", "me")))),
             RichSpec(13, MessageContent.Text("Love this voice note - keeping it for the review."), replyToPrevious = true),
+            RichSpec(19, MessageContent.Text("https://material.io/design/color/dark-theme.html"),
+                linkPreview = LinkPreview("https://material.io/design/color/dark-theme.html", "Material Design dark theme", "Recommended color tokens and surface overlays for dark UIs.")),
+            RichSpec(24, MessageContent.Image(listOf("sample://photos/photo_city.jpg"), widthPx = 1080, heightPx = 1080)),
+            RichSpec(28, MessageContent.Contact("u-noah", "Noah Khan", "+91 98110 10002", "noahk")),
             RichSpec(33, MessageContent.Text("Check the divider contrast in dark mode."), isEdited = true, isStarred = true),
             RichSpec(35, MessageContent.Text("This thread keeps a deleted note below.")),
             RichSpec(36, MessageContent.Text("Old note"), isDeleted = true),
         )
         "c-noah" -> listOf(
-            RichSpec(4, MessageContent.Text("https://github.com/pulse-app/releases/releases/tag/debug-0.1.0")),
-            RichSpec(15, MessageContent.File("pulse-debug.apk", 12_008_455, "application/vnd.android.package-archive")),
+            RichSpec(4, MessageContent.Text("https://github.com/pulse-app/releases/releases/tag/debug-0.1.0"),
+                linkPreview = LinkPreview("https://github.com/pulse-app/releases/releases/tag/debug-0.1.0", "Pulse releases - debug 0.1.0", "Latest debug build notes and download link.")),
+            RichSpec(15, MessageContent.File("pulse-debug-artifacts.zip", 32_499, "application/zip", uri = "sample://files/sample_archive.zip")),
             RichSpec(21, MessageContent.Text("APK is in the artifact, grab it."), replyToPrevious = true, isStarred = true),
             RichSpec(26, MessageContent.Text("Fixing the icon overlap now."), isEdited = true),
         )
         "c-iva" -> listOf(
             RichSpec(8, MessageContent.Text("https://example.com/runs/route-5k-river")),
-            RichSpec(17, MessageContent.Voice(14, wave(16, 202)), reactions = listOf(MessageReaction("🔥", listOf("me")))),
+            RichSpec(17, MessageContent.Voice(15, wave(16, 202)), reactions = listOf(MessageReaction("🔥", listOf("me")))),
+            RichSpec(21, MessageContent.Contact("u-tara", "Tara Iyengar", "+91 98110 10016", "tarai")),
         )
         "c-dev" -> listOf(
             RichSpec(6, MessageContent.Text("https://developer.android.com/studio/build/dependencies")),
-            RichSpec(14, MessageContent.Voice(32, wave(22, 303))),
+            RichSpec(14, MessageContent.Voice(28, wave(22, 303))),
         )
         "c-kabir" -> listOf(
             RichSpec(10, MessageContent.Text("https://example.com/grounds/hill-park-cricket")),
-            RichSpec(20, MessageContent.Image(listOf("sample://kabir/ground.jpg"), widthPx = 1600, heightPx = 900)),
+            RichSpec(20, MessageContent.Image(listOf("sample://photos/photo_park.jpg"), caption = "The ground this Sunday", widthPx = 1600, heightPx = 900)),
         )
         "c-mira" -> listOf(
-            RichSpec(7, MessageContent.Image(listOf("sample://mira/tea.jpg"), caption = "The jasmine green tea", widthPx = 900, heightPx = 1200)),
-            RichSpec(13, MessageContent.Image(listOf("sample://mira/books.jpg", "sample://mira/nursery.jpg"), widthPx = 1200, heightPx = 900)),
+            RichSpec(7, MessageContent.Image(listOf("sample://photos/photo_tea.jpg"), caption = "The jasmine green tea", widthPx = 900, heightPx = 1200)),
+            RichSpec(13, MessageContent.Image(listOf("sample://photos/photo_books.jpg", "sample://photos/photo_city.jpg"), caption = "New reads + the city corner", widthPx = 1200, heightPx = 900)),
         )
         "c-sam" -> listOf(
-            RichSpec(9, MessageContent.Image(listOf("sample://sam/sunrise-ridge.jpg"), caption = "Sunrise from the ridge", widthPx = 1600, heightPx = 1066)),
-            RichSpec(18, MessageContent.Video("sample://sam/stream-crossing.mp4", durationSeconds = 11, widthPx = 1280, heightPx = 720)),
+            RichSpec(9, MessageContent.Image(listOf("sample://photos/photo_hills.jpg"), caption = "Sunrise from the ridge", widthPx = 1600, heightPx = 1066)),
+            RichSpec(18, MessageContent.Video("sample://videos/sample_video_1.mp4", durationSeconds = 6, widthPx = 320, heightPx = 240)),
         )
         "c-lea" -> listOf(
-            RichSpec(12, MessageContent.File("pitch-deck-v4.pdf", 4_812_933, "application/pdf"), reactions = listOf(MessageReaction("👏", listOf("me", "u-lea")))),
+            RichSpec(12, MessageContent.File("pitch-deck-v4.pdf", 24_637, "application/pdf", uri = "sample://files/sample_doc_pdf.pdf"), reactions = listOf(MessageReaction("👏", listOf("me", "u-lea")))),
             RichSpec(22, MessageContent.Location(19.0760, 72.8777, "Bandra, Mumbai")),
         )
         "c-rohan" -> listOf(
-            RichSpec(5, MessageContent.Image(listOf("sample://rohan/shelf.jpg"), caption = "Bookshelf build done", widthPx = 1200, heightPx = 1600)),
-            RichSpec(16, MessageContent.Voice(9, wave(12, 404))),
+            RichSpec(5, MessageContent.Image(listOf("sample://photos/photo_books.jpg"), caption = "Bookshelf build done", widthPx = 1200, heightPx = 1600)),
+            RichSpec(16, MessageContent.Voice(7, wave(12, 404))),
         )
         "c-assistant" -> listOf(
             RichSpec(3, MessageContent.Text("Psst - this chat always replies. Try sending anything."), isStarred = true, reactions = listOf(MessageReaction("👋", listOf("u-pulse", "me")))),
             RichSpec(11, MessageContent.Text("Here is a link to try: https://pulse.example.com/guide")),
-            RichSpec(18, MessageContent.Sticker("pulse-wave")),
+            RichSpec(18, MessageContent.Sticker("sticker_sun")),
         )
         "c-design" -> listOf(
             RichSpec(0, MessageContent.System("You created the group"), actor = "me"),
@@ -564,11 +571,21 @@ object SeedData {
             RichSpec(3, MessageContent.System("Ana joined"), actor = "u-ana"),
             RichSpec(4, MessageContent.System("Sam joined"), actor = "u-sam"),
             RichSpec(5, MessageContent.System("Nina joined"), actor = "u-nina"),
-            RichSpec(9, MessageContent.Image(listOf("sample://design/tokens-v3.png"), caption = "Token sheet v3", widthPx = 1400, heightPx = 900)),
+            RichSpec(9, MessageContent.Image(listOf("sample://photos/photo_palette.jpg"), caption = "Token sheet v3", widthPx = 1400, heightPx = 900)),
             RichSpec(16, MessageContent.Voice(28, wave(20, 505))),
-            RichSpec(24, MessageContent.File("component-matrix.xlsx", 268_435, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")),
+            RichSpec(21, MessageContent.Poll(
+                question = "Which radius is the new sheet token?",
+                options = listOf("16dp", "20dp", "24dp", "28dp"),
+                votes = mapOf(1 to listOf("u-sam"), 2 to listOf("me", "u-aria")),
+                multipleAnswers = false,
+                isAnonymous = true,
+                isQuiz = true,
+                correctOptionIndex = 2,
+            )),
+            RichSpec(24, MessageContent.File("component-matrix.docx", 32_472, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", uri = "sample://files/sample_doc_docx.docx")),
             RichSpec(25, MessageContent.Text("Thanks for the matrix!"), replyToPrevious = true),
-            RichSpec(31, MessageContent.Text("See the radii in the spec: https://pulse.example.com/spec/shapes")),
+            RichSpec(31, MessageContent.Text("See the radii in the spec: https://pulse.example.com/spec/shapes"),
+                linkPreview = LinkPreview("https://pulse.example.com/spec/shapes", "Pulse design spec - Shapes", "Corner radii tokens for bubbles, sheets and inputs.")),
             RichSpec(38, MessageContent.Text("Bubble radii updated"), isEdited = true),
             RichSpec(40, MessageContent.Text("Closing this thread for the demo"), reactions = listOf(MessageReaction("👍", listOf("u-aria", "u-sam", "me")))),
         )
@@ -580,11 +597,14 @@ object SeedData {
             RichSpec(4, MessageContent.System("Reyansh joined"), actor = "u-rao"),
             RichSpec(5, MessageContent.System("Omar joined"), actor = "u-omar"),
             RichSpec(10, MessageContent.Text("https://example.com/roadtrip/route-map-goa")),
-            RichSpec(17, MessageContent.Location(18.6046, 73.7600, "Lonavala ghat viewpoint")),
-            RichSpec(26, MessageContent.Image(listOf("sample://roadtrip/beach-house.jpg"), caption = "The beach house", widthPx = 1600, heightPx = 900)),
-            RichSpec(34, MessageContent.Voice(26, wave(18, 606)), reactions = listOf(MessageReaction("👍", listOf("u-dev", "u-kabir")))),
+            RichSpec(17, MessageContent.Location(18.6046, 73.7600, "Lonavala ghat viewpoint", isLive = true, liveDurationSeconds = 3_600)),
+            RichSpec(20, MessageContent.Sticker("sticker_pulse")),
+            RichSpec(26, MessageContent.Image(listOf("sample://photos/photo_beach.jpg"), caption = "The beach house", widthPx = 1600, heightPx = 900)),
+            RichSpec(31, MessageContent.Image(listOf("sample://photos/photo_route.jpg", "sample://photos/photo_city.jpg", "sample://photos/photo_hills.jpg"), caption = "Views from the drive", widthPx = 1200, heightPx = 900)),
+            RichSpec(34, MessageContent.Voice(28, wave(18, 606)), reactions = listOf(MessageReaction("👍", listOf("u-dev", "u-kabir")))),
             RichSpec(36, MessageContent.Text("Count me in for the late train too."), reactions = listOf(MessageReaction("😮", listOf("u-omar")), MessageReaction("🔥", listOf("me")))),
-            RichSpec(39, MessageContent.Location(15.2993, 74.0760, "Jetty seafood place, Goa")),
+            RichSpec(37, MessageContent.Video("sample://videos/sample_video_2.mp4", durationSeconds = 9, widthPx = 320, heightPx = 240, caption = "The fort viewpoint")),
+            RichSpec(39, MessageContent.Location(15.2993, 74.0760, "Jetty seafood place, Goa", isLive = true, liveDurationSeconds = 28_800)),
         )
         "c-fam" -> listOf(
             RichSpec(0, MessageContent.System("You created the group"), actor = "me"),
@@ -598,7 +618,7 @@ object SeedData {
                 votes = mapOf(0 to listOf("me", "u-nina"), 1 to listOf("u-rohan"), 2 to listOf("u-ana", "u-mira")),
                 multipleAnswers = false,
             )),
-            RichSpec(19, MessageContent.Image(listOf("sample://fam/park-walk.jpg"), widthPx = 1200, heightPx = 800)),
+            RichSpec(19, MessageContent.Image(listOf("sample://photos/photo_park.jpg", "sample://photos/photo_beach.jpg", "sample://photos/photo_hills.jpg", "sample://photos/photo_route.jpg"), caption = "Weekend photos", widthPx = 1200, heightPx = 900)),
             RichSpec(28, MessageContent.Text("Poll is live for next month too."), isStarred = true),
         )
         "c-run" -> listOf(
@@ -607,7 +627,7 @@ object SeedData {
             RichSpec(2, MessageContent.System("Tara joined"), actor = "u-tara"),
             RichSpec(3, MessageContent.System("Sam joined"), actor = "u-sam"),
             RichSpec(8, MessageContent.Text("https://example.com/runs/segment-river-5k")),
-            RichSpec(14, MessageContent.Sticker("run-fast")),
+            RichSpec(14, MessageContent.Sticker("sticker_run")),
             RichSpec(21, MessageContent.Text("Route exported to the file below.")),
             RichSpec(22, MessageContent.File("river-route.gpx", 18_240, "application/gpx+xml"), replyToPrevious = true),
         )
@@ -702,6 +722,7 @@ object SeedData {
                 isDeleted = spec?.isDeleted ?: false,
                 isStarred = spec?.isStarred ?: false,
                 reactions = spec?.reactions ?: emptyList(),
+                linkPreview = spec?.linkPreview,
             )
             val id = "s${chat.id}-${String.format("%03d", i + 1)}"
             drafts.add(draft)
@@ -732,6 +753,7 @@ object SeedData {
                 isDeleted = draft.isDeleted,
                 isStarred = draft.isStarred,
                 reactions = draft.reactions,
+                linkPreview = draft.linkPreview,
             )
         }
     }

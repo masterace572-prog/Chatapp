@@ -113,6 +113,83 @@ interface ChatRepository {
     /** People mentionable in a group chat (members, excluding the current user). */
     fun observeMentionCandidates(chatId: String): Flow<List<User>>
 
+    /* ---------- Media & rich sends (M4c) ---------- */
+
+    /**
+     * Sends 1-10 images as ONE message (grid rendering). Uris may be Photo
+     * Picker content:// results or bundled sample keys. Mock uploads with a
+     * 0->100% progress visible on the bubble before the status walk.
+     */
+    suspend fun sendImages(
+        chatId: String,
+        uris: List<String>,
+        caption: String? = null,
+        replyToMessageId: String? = null,
+    ): String
+
+    /** Sends one video (uri + optional duration/metadata/caption). */
+    suspend fun sendVideo(
+        chatId: String,
+        uri: String,
+        durationSeconds: Int = 0,
+        widthPx: Int = 0,
+        heightPx: Int = 0,
+        caption: String? = null,
+        replyToMessageId: String? = null,
+    ): String
+
+    /** Sends a document opened via SAF (uri persisted, no storage permission). */
+    suspend fun sendFile(
+        chatId: String,
+        uri: String,
+        name: String,
+        sizeBytes: Long,
+        mimeType: String,
+        replyToMessageId: String? = null,
+    ): String
+
+    /** Sends a location card; live shares expire after [liveDurationMs]. */
+    suspend fun sendLocation(
+        chatId: String,
+        latitude: Double,
+        longitude: Double,
+        address: String,
+        isLive: Boolean = false,
+        liveDurationMs: Long? = null,
+        replyToMessageId: String? = null,
+    ): String
+
+    /** Shares one Pulse contact card into a chat. */
+    suspend fun sendContact(
+        chatId: String,
+        userId: String,
+        displayName: String,
+        phone: String? = null,
+        username: String? = null,
+        replyToMessageId: String? = null,
+    ): String
+
+    /** Creates a poll; [correctOptionIndex] only applies in quiz mode. */
+    suspend fun sendPoll(
+        chatId: String,
+        question: String,
+        options: List<String>,
+        allowsMultiple: Boolean = false,
+        isAnonymous: Boolean = false,
+        isQuiz: Boolean = false,
+        correctOptionIndex: Int? = null,
+        replyToMessageId: String? = null,
+    ): String
+
+    /** Sets the current user's votes (toggle-style, option-index based). */
+    suspend fun votePoll(messageId: String, optionIndexes: List<Int>)
+
+    /** Removes the current user's votes from a poll. */
+    suspend fun retractVote(messageId: String)
+
+    /** Sends a sticker by bundled asset key. */
+    suspend fun sendSticker(chatId: String, assetKey: String): String
+
     /* ---------- Chat list actions (mock/local state, M3) ---------- */
 
     suspend fun setArchived(chatId: String, archived: Boolean)

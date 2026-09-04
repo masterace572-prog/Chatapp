@@ -65,6 +65,8 @@ sealed interface MessageContent {
         val name: String,
         val sizeBytes: Long,
         val mimeType: String = "application/octet-stream",
+        /** Source uri for opening/downloading the file (bundled sample or SAF pick). */
+        val uri: String = "",
     ) : MessageContent {
         override val type: MessageType = MessageType.File
         override val text: String get() = name
@@ -74,6 +76,10 @@ sealed interface MessageContent {
         val latitude: Double,
         val longitude: Double,
         val address: String = "",
+        /** Live-location share: true while the share window is running. */
+        val isLive: Boolean = false,
+        /** Seconds the live share runs for (null when [isLive] is false). */
+        val liveDurationSeconds: Int? = null,
     ) : MessageContent {
         override val type: MessageType = MessageType.Location
         override val text: String get() = address
@@ -97,6 +103,8 @@ sealed interface MessageContent {
         val multipleAnswers: Boolean = false,
         val isAnonymous: Boolean = false,
         val isQuiz: Boolean = false,
+        /** Quiz mode: index of the correct option (revealed after voting). */
+        val correctOptionIndex: Int? = null,
     ) : MessageContent {
         override val type: MessageType = MessageType.Poll
         override val text: String get() = question
@@ -146,6 +154,8 @@ data class Message(
     val isStarred: Boolean = false,
     val isPinned: Boolean = false,
     val reactions: List<MessageReaction> = emptyList(),
+    /** 0f..1f while the mock is uploading media; null once stored/delivered. */
+    val uploadProgress: Float? = null,
     val linkPreview: LinkPreview? = null,
 ) {
     val type: MessageType get() = content.type

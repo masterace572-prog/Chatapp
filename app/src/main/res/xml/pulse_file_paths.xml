@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cache exports for ACTION_VIEW / share of bundled + picked media (M4c).
+     No storage permissions: only our own cache dir is exposed. -->
+<paths>
+    <cache-path name="shared" path="shared/" />
+    <cache-path name="media" path="media/" />
+</paths>

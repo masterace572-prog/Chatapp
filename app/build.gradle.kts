@@ -76,6 +76,9 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
 
+    // Images (bundled samples + Photo Picker content uris, M4c)
+    implementation(libs.coil.compose)
+
     // Persistence (settings only for now; Room arrives with chat persistence milestone)
     implementation(libs.androidx.datastore.preferences)
 }

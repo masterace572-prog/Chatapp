@@ -286,6 +286,24 @@ class MockChatRepository @Inject constructor(
                 )
             }
         }
+        // M4c: auto-repliers occasionally vote on the user's polls (1-4s).
+        val sent = findMessage(messageId)?.message
+        if (sent?.content is MessageContent.Poll && chatId in autoReplyChats) {
+            delay(Random.nextLong(1000, 4000))
+            val p = (sent.content as MessageContent.Poll)
+            if (p.options.isNotEmpty()) {
+                val replier = replySender(chat)
+                val pick = Random.nextInt(p.options.size)
+                updateMessage(chatId, messageId) { m ->
+                    val cur = m.content as? MessageContent.Poll ?: return@updateMessage m
+                    m.copy(
+                        content = cur.copy(
+                            votes = cur.votes + (pick to ((cur.votes[pick].orEmpty()) + replier)),
+                        ),
+                    )
+                }
+            }
+        }
         // DELIVERED -> READ (+1-3s) only when the chat is "online".
         if (isOnline(chat)) {
             delay(Random.nextLong(1000, 3000))
@@ -526,6 +544,174 @@ class MockChatRepository @Inject constructor(
     override suspend fun setBlocked(chatId: String, blocked: Boolean) {
         Simulator.shortDelay()
         mutate(chatId) { it.chat = it.chat.copy(isBlocked = blocked) }
+    }
+
+    /* ---------- M4c media & rich sends ---------- */
+
+    override suspend fun sendImages(
+        chatId: String,
+        uris: List<String>,
+        caption: String?,
+        replyToMessageId: String?,
+    ): String {
+        require(uris.isNotEmpty() && uris.size <= 10) { "1..10 images per message" }
+        return launchMediaSend(
+            chatId,
+            MessageContent.Image(uris = uris, caption = caption.orEmpty()),
+            replyToMessageId,
+        )
+    }
+
+    override suspend fun sendVideo(
+        chatId: String,
+        uri: String,
+        durationSeconds: Int,
+        widthPx: Int,
+        heightPx: Int,
+        caption: String?,
+        replyToMessageId: String?,
+    ): String = launchMediaSend(
+        chatId,
+        MessageContent.Video(uri = uri, durationSeconds = durationSeconds, widthPx = widthPx, heightPx = heightPx, caption = caption.orEmpty()),
+        replyToMessageId,
+    )
+
+    override suspend fun sendFile(
+        chatId: String,
+        uri: String,
+        name: String,
+        sizeBytes: Long,
+        mimeType: String,
+        replyToMessageId: String?,
+    ): String = launchMediaSend(
+        chatId,
+        MessageContent.File(uri = uri, name = name, sizeBytes = sizeBytes, mimeType = mimeType),
+        replyToMessageId,
+    )
+
+    override suspend fun sendLocation(
+        chatId: String,
+        latitude: Double,
+        longitude: Double,
+        address: String,
+        isLive: Boolean,
+        liveDurationMs: Long?,
+        replyToMessageId: String?,
+    ): String = launchMediaSend(
+        chatId,
+        MessageContent.Location(
+            latitude = latitude,
+            longitude = longitude,
+            address = address,
+            isLive = isLive,
+            liveDurationSeconds = liveDurationMs?.let { (it / 1000L).toInt() },
+        ),
+        replyToMessageId,
+    )
+
+    override suspend fun sendContact(
+        chatId: String,
+        userId: String,
+        displayName: String,
+        phone: String?,
+        username: String?,
+        replyToMessageId: String?,
+    ): String = launchMediaSend(
+        chatId,
+        MessageContent.Contact(userId = userId, displayName = displayName, phone = phone, username = username),
+        replyToMessageId,
+    )
+
+    override suspend fun sendPoll(
+        chatId: String,
+        question: String,
+        options: List<String>,
+        allowsMultiple: Boolean,
+        isAnonymous: Boolean,
+        isQuiz: Boolean,
+        correctOptionIndex: Int?,
+        replyToMessageId: String?,
+    ): String {
+        require(options.size in 2..10) { "2..10 poll options" }
+        return launchMediaSend(
+            chatId,
+            MessageContent.Poll(
+                question = question,
+                options = options,
+                votes = emptyMap(),
+                multipleAnswers = allowsMultiple,
+                isAnonymous = isAnonymous,
+                isQuiz = isQuiz,
+            ).also { check(correctOptionIndex == null || correctOptionIndex in options.indices) },
+            replyToMessageId,
+        )
+    }
+
+    override suspend fun sendSticker(chatId: String, assetKey: String): String =
+        launchMediaSend(chatId, MessageContent.Sticker(assetKey = assetKey), null)
+
+    /** Appends the outgoing message with uploadProgress = 0f, then uploads. */
+    private suspend fun launchMediaSend(
+        chatId: String,
+        content: MessageContent,
+        replyToMessageId: String?,
+    ): String {
+        val state = _chatState.value[chatId] ?: return ""
+        val id = "m-${System.currentTimeMillis()}-m${sendCounter++}"
+        appendMessage(
+            Message(
+                id = id,
+                chatId = chatId,
+                senderId = "me",
+                content = content,
+                sentAtMillis = System.currentTimeMillis(),
+                status = MessageStatus.Sending,
+                isOutgoing = true,
+                replyToMessageId = replyToMessageId,
+                uploadProgress = 0f,
+            ),
+        )
+        clearUnread(chatId)
+        scope.launch { uploadAndPipeline(chatId, id, state.chat) }
+        return id
+    }
+
+    /** Upload 0->100% (1-2.5s) then the usual Sending..Read pipeline. */
+    private suspend fun uploadAndPipeline(chatId: String, messageId: String, chat: Chat) {
+        val steps = Random.nextInt(6, 11)
+        repeat(steps) { i ->
+            delay(Random.nextLong(120, 250))
+            updateMessage(chatId, messageId) {
+                it.copy(uploadProgress = ((i + 1).toFloat() / steps).coerceIn(0f, 1f))
+            }
+        }
+        updateMessage(chatId, messageId) { it.copy(uploadProgress = null) }
+        runPipeline(chatId, messageId, chat, willFail = Random.nextInt(100) < 5)
+    }
+
+    override suspend fun votePoll(messageId: String, optionIndexes: List<Int>) {
+        val entry = findMessage(messageId) ?: return
+        val poll = entry.message.content as? MessageContent.Poll ?: return
+        val allowed = if (poll.multipleAnswers) poll.options.indices.toList() else optionIndexes.take(1)
+        updateMessage(entry.chatId, messageId) { m ->
+            val p = m.content as? MessageContent.Poll ?: return@updateMessage m
+            val next = p.votes.toMutableMap()
+            allowed.forEach { idx ->
+                if (idx !in p.options.indices) return@forEach
+                val users = next[idx].orEmpty()
+                next[idx] = if ("me" in users) users - "me" else users + "me"
+            }
+            m.copy(content = p.copy(votes = next.filterValues { it.isNotEmpty() }))
+        }
+    }
+
+    override suspend fun retractVote(messageId: String) {
+        val entry = findMessage(messageId) ?: return
+        val poll = entry.message.content as? MessageContent.Poll ?: return
+        updateMessage(entry.chatId, messageId) { m ->
+            val p = m.content as? MessageContent.Poll ?: return@updateMessage m
+            m.copy(content = p.copy(votes = p.votes.mapValues { (_, users) -> users - "me" }.filterValues { it.isNotEmpty() }))
+        }
     }
 
     override fun observeMentionCandidates(chatId: String): Flow<List<User>> =
