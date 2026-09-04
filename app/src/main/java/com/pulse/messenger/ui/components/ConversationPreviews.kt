@@ -900,3 +900,28 @@ private fun M4cPollComposerPreview() {
         )
     }
 }
+
+@Preview(name = "M4c · Location picker (light)", showBackground = true, widthDp = 400, heightDp = 800)
+@Preview(name = "M4c · Location picker (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400, heightDp = 800)
+@Composable
+private fun M4cLocationPickerPreview() {
+    PreviewHost {
+        LocationPickerSheet(
+            onDismiss = {},
+            onSendLocation = { _, _, _, _, _ -> },
+            modifier = Modifier.fillMaxWidth().height(800.dp),
+        )
+    }
+}
+
+@Preview(name = "M4c · Live-location duration (light)", showBackground = true, widthDp = 400, heightDp = 500)
+@Preview(name = "M4c · Live-location duration (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400, heightDp = 500)
+@Composable
+private fun M4cLiveLocationSheetPreview() {
+    PreviewHost {
+        LiveDurationSheetContent(
+            onDismiss = {},
+            onShare = {},
+        )
+    }
+}

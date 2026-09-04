@@ -361,6 +361,22 @@
     <string name="conversation_poll_validation">Add a question and at least two options</string>
     <string name="conversation_poll_validation_quiz">Select the correct answer</string>
     <string name="conversation_poll_remove_vote">Remove my vote</string>
+    <!-- M4c: location picker (S40) -->
+    <string name="conversation_location_search_hint">Search places</string>
+    <string name="conversation_location_current_title">Current location</string>
+    <string name="conversation_location_current_sub">Approximate location · updates as you move</string>
+    <string name="conversation_location_send_label">Send this location</string>
+    <string name="conversation_location_live_label">Share live location</string>
+    <string name="conversation_location_live_15m">15 minutes</string>
+    <string name="conversation_location_live_1h">1 hour</string>
+    <string name="conversation_location_live_8h">8 hours</string>
+    <string name="conversation_location_live_send">Share live location</string>
+    <string name="conversation_location_live_sub">Recipients see your location update in real time for the chosen period.</string>
+    <string name="conversation_location_sent">Location sent</string>
+    <string name="conversation_location_live_sent">Live location shared</string>
+    <string name="conversation_location_none">No matching places</string>
+    <string name="conversation_location_map_cd">Map preview</string>
+    <string name="conversation_location_place_cd">Select place</string>
     <string name="conversation_poll_created">Poll created</string>
 
     <!-- M4b: reply / edit bars -->

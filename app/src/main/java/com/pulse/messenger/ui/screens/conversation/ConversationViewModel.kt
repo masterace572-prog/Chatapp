@@ -568,6 +568,32 @@ class ConversationViewModel @Inject constructor(
         viewModelScope.launch { chatRepository.retractVote(messageId) }
     }
 
+    /** Sends a static or live location card (mock coordinates). */
+    fun sendLocation(
+        latitude: Double,
+        longitude: Double,
+        address: String,
+        isLive: Boolean,
+        liveDurationMs: Long?,
+    ) {
+        val replying = replyId.value
+        replyId.value = null
+        editId.value = null
+        draftText.value = ""
+        unreadMarker.value = 0
+        viewModelScope.launch {
+            chatRepository.sendLocation(
+                chatId,
+                latitude = latitude,
+                longitude = longitude,
+                address = address,
+                isLive = isLive,
+                liveDurationMs = liveDurationMs,
+                replyToMessageId = replying,
+            )
+        }
+    }
+
     /* ---------- Voice recording (M4b) ---------- */
 
     fun recordStart() {

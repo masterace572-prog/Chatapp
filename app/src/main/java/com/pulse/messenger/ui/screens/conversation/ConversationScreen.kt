@@ -91,6 +91,7 @@ import com.pulse.messenger.ui.components.DateSeparator
 import com.pulse.messenger.ui.components.EmptyState
 import com.pulse.messenger.ui.components.EmojiSheetContent
 import com.pulse.messenger.ui.components.ForwardSheet
+import com.pulse.messenger.ui.components.LocationPickerSheet
 import com.pulse.messenger.ui.components.LongPressScrim
 import com.pulse.messenger.ui.components.MessageActionItem
 import com.pulse.messenger.ui.components.MessageActionSheet
@@ -206,6 +207,7 @@ fun ConversationScreen(
             sendPoll = vm::sendPoll,
             votePoll = vm::votePoll,
             retractVote = vm::retractVote,
+            sendLocation = vm::sendLocation,
             toggleReaction = vm::toggleReaction,
             toggleStar = vm::toggleStar,
             pin = vm::pinMessage,
@@ -239,6 +241,7 @@ internal class VmBridge(
     val sendPoll: (String, List<String>, Boolean, Boolean, Boolean, Int?) -> Unit,
     val votePoll: (String, List<Int>) -> Unit,
     val retractVote: (String) -> Unit,
+    val sendLocation: (Double, Double, String, Boolean, Long?) -> Unit,
     val toggleReaction: (String, String) -> Unit,
     val toggleStar: (String) -> Unit,
     val pin: (String) -> Unit,
@@ -299,6 +302,7 @@ internal fun ConversationContent(
     var recentMedia by remember { mutableStateOf<List<RecentMediaItem>>(emptyList()) }
     var viewerSession by remember { mutableStateOf<ViewerSession?>(null) }
     var pollComposerOpen by remember { mutableStateOf(false) }
+    var locationPickerOpen by remember { mutableStateOf(false) }
 
     val chat = state.chat
     val overlayMessage = state.actionMessageId?.let { id ->
@@ -422,6 +426,10 @@ internal fun ConversationContent(
                 showTray = false
                 pollComposerOpen = true
             }
+            AttachmentTile.Location -> {
+                showTray = false
+                locationPickerOpen = true
+            }
             else -> toastComingSoon(context, attachmentTileLabel(tile))
         }
     }
@@ -481,6 +489,9 @@ internal fun ConversationContent(
     }
     BackHandler(enabled = pollComposerOpen) {
         pollComposerOpen = false
+    }
+    BackHandler(enabled = locationPickerOpen) {
+        locationPickerOpen = false
     }
 
     // Scroll-to target (reply quote / pinned banner taps).
@@ -1000,6 +1011,24 @@ internal fun ConversationContent(
                     pollComposerOpen = false
                     onVm?.sendPoll?.invoke(question, options, multiple, anonymous, quiz, correct)
                     snack(context.getString(R.string.conversation_poll_created))
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        // ---- M4c S40: location picker + live-location durations. ----
+        if (locationPickerOpen) {
+            LocationPickerSheet(
+                onDismiss = { locationPickerOpen = false },
+                onSendLocation = { lat, lng, address, isLive, durationMs ->
+                    locationPickerOpen = false
+                    onVm?.sendLocation?.invoke(lat, lng, address, isLive, durationMs)
+                    snack(
+                        context.getString(
+                            if (isLive) R.string.conversation_location_live_sent
+                            else R.string.conversation_location_sent,
+                        ),
+                    )
                 },
                 modifier = Modifier.fillMaxSize(),
             )
