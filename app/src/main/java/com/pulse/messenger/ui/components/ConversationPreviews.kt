@@ -2,7 +2,13 @@ package com.pulse.messenger.ui.components
 
 import android.content.res.Configuration
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -12,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.pulse.messenger.domain.model.Chat
+import com.pulse.messenger.domain.model.ChatPermissions
+import com.pulse.messenger.domain.model.ChatSummary
 import com.pulse.messenger.domain.model.ChatKind
 import com.pulse.messenger.domain.model.ChatRole
 import com.pulse.messenger.domain.model.GroupMember
@@ -20,6 +28,8 @@ import com.pulse.messenger.domain.model.MessageContent
 import com.pulse.messenger.domain.model.MessageReaction
 import com.pulse.messenger.domain.model.MessageStatus
 import com.pulse.messenger.domain.model.User
+import com.pulse.messenger.R
+import com.pulse.messenger.ui.icons.AppIcons
 import com.pulse.messenger.ui.screens.conversation.ConversationContent
 import com.pulse.messenger.ui.screens.conversation.ConversationUiState
 import com.pulse.messenger.ui.screens.conversation.ConversationRow
@@ -209,9 +219,14 @@ private fun ChatRowsChromePreview() {
 @Composable
 private fun ComposerPreview() {
     PreviewHost {
-        MessageComposer(value = "", onValueChange = {})
-        MessageComposer(value = "Typing a message…", onValueChange = {})
+        MessageComposer(state = ComposerUiState.Idle, value = "", onValueChange = {})
+        MessageComposer(state = ComposerUiState.Typing, value = "Typing a message…", onValueChange = {})
         MessageComposer(
+            state = ComposerUiState.Reply(
+                messageId = "r1",
+                senderName = "Aria Sharma",
+                excerpt = "The new palette landed",
+            ),
             value = "A much longer draft line that should wrap across several lines inside the growing composer field, up to six lines maximum height for the demo",
             onValueChange = {},
         )
@@ -264,4 +279,309 @@ private fun ConversationScreenPreview() {
             ConversationContent(state = state)
         }
     }
+}
+
+/* =====================================================================
+ * M4b preview pairs (PRD §7: every new surface in light AND dark):
+ * composer states, long-press actions, reactions, emoji sheet, pinned
+ * banner, multi-select bar, forward sheet and conversation states.
+ * ===================================================================== */
+
+private fun m4bSummary(
+    chatId: String,
+    name: String,
+    seed: Int,
+    lastText: String,
+    group: Boolean = false,
+    unread: Int = 0,
+    muted: Boolean = false,
+): ChatSummary {
+    val kind = if (group) ChatKind.Group else ChatKind.Direct
+    return ChatSummary(
+        chatId = chatId,
+        kind = kind,
+        displayName = name,
+        avatarSeed = seed,
+        peerFirstName = if (group) "" else name.substringBefore(' '),
+        memberNames = if (group) listOf("Aria", "Mira", "Ana") else emptyList(),
+        participantCount = if (group) 6 else 2,
+        lastMessage = text("$chatId-last", if (group) "u-aria" else "me", 2, lastText),
+        unreadCount = unread,
+        isMuted = muted,
+    )
+}
+
+@Preview(name = "Composer · reply & edit bars (light)", showBackground = true, widthDp = 400)
+@Preview(name = "Composer · reply & edit bars (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun ComposerBarsPreview() {
+    PreviewHost {
+        Column {
+            MessageComposer(
+                state = ComposerUiState.Reply(
+                    messageId = "r1",
+                    senderName = "Aria Sharma",
+                    excerpt = "Send over the screenshot when you get a second.",
+                ),
+                value = "On it - after the review.",
+                onValueChange = {},
+            )
+            Spacer(Modifier.height(PulseSpacing.lg))
+            MessageComposer(
+                state = ComposerUiState.Edit(
+                    messageId = "e1",
+                    excerpt = "Check the dark theme contrast on the dividers once.",
+                ),
+                value = "Check the dark theme contrast on the dividers twice.",
+                onValueChange = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "Composer · voice recording (light)", showBackground = true, widthDp = 400)
+@Preview(name = "Composer · voice recording (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun ComposerRecordingPreview() {
+    PreviewHost {
+        Column {
+            MessageComposer(state = ComposerUiState.Recording, value = "", onValueChange = {})
+            Spacer(Modifier.height(PulseSpacing.lg))
+            MessageComposer(state = ComposerUiState.LockedRecording, value = "", onValueChange = {})
+        }
+    }
+}
+
+@Preview(name = "Composer · blocked & read-only (light)", showBackground = true, widthDp = 400)
+@Preview(name = "Composer · blocked & read-only (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun ComposerStatusPreview() {
+    PreviewHost {
+        Column {
+            MessageComposer(state = ComposerUiState.Blocked, value = "", onValueChange = {})
+            Spacer(Modifier.height(PulseSpacing.lg))
+            MessageComposer(state = ComposerUiState.ReadOnly, value = "", onValueChange = {})
+        }
+    }
+}
+
+@Preview(name = "Quick reaction bar (light)", showBackground = true, widthDp = 400)
+@Preview(name = "Quick reaction bar (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun QuickReactionBarPreview() {
+    PreviewHost {
+        Column {
+            QuickReactionBar(onReact = {}, onMore = {})
+            Spacer(Modifier.height(PulseSpacing.lg))
+            // The same bar above an outgoing bubble for context.
+            MessageBubble(
+                bubble("qr1", "me", 5, MessageContent.Text("Could you move the build to noon?")),
+            )
+        }
+    }
+}
+
+@Preview(name = "Message action sheet (light)", showBackground = true, widthDp = 400)
+@Preview(name = "Message action sheet (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun MessageActionSheetPreview() {
+    PreviewHost {
+        MessageActionSheet(
+            items = listOf(
+                MessageActionItem(AppIcons.CornerUpLeft, R.string.conversation_action_reply),
+                MessageActionItem(AppIcons.Share, R.string.conversation_action_forward),
+                MessageActionItem(AppIcons.Copy, R.string.conversation_action_copy),
+                MessageActionItem(AppIcons.Pin, R.string.conversation_action_pin),
+                MessageActionItem(AppIcons.Star, R.string.conversation_action_star),
+                MessageActionItem(AppIcons.Pencil, R.string.conversation_action_edit),
+                MessageActionItem(AppIcons.Info, R.string.conversation_action_info),
+                MessageActionItem(AppIcons.Trash, R.string.conversation_action_delete, destructive = true),
+                MessageActionItem(AppIcons.Check, R.string.conversation_action_select),
+            ),
+        )
+    }
+}
+
+@Preview(name = "Reaction pills & reactors (light)", showBackground = true, widthDp = 400)
+@Preview(name = "Reaction pills & reactors (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun ReactionsPreview() {
+    PreviewHost {
+        Column {
+            ReactionPillRow(
+                pills = listOf(
+                    ReactionPillUi("👍", 3, includesMe = true),
+                    ReactionPillUi("❤️", 2, includesMe = false),
+                    ReactionPillUi("🔥", 1, includesMe = true),
+                ),
+                isOutgoing = true,
+            )
+            Spacer(Modifier.height(PulseSpacing.sm))
+            ReactionPillRow(
+                pills = listOf(
+                    ReactionPillUi("👏", 5, includesMe = false),
+                    ReactionPillUi("😂", 2, includesMe = false),
+                ),
+                isOutgoing = false,
+            )
+            Spacer(Modifier.height(PulseSpacing.lg))
+            ReactorsSheetContent(
+                emoji = "👍",
+                reactors = listOf(
+                    ReactorUi("Aria Sharma", 1),
+                    ReactorUi("Mira Patel", 3),
+                    ReactorUi("Aarav Kapoor", 3),
+                ),
+            )
+        }
+    }
+}
+
+@Preview(name = "Emoji sheet (light)", showBackground = true, widthDp = 400)
+@Preview(name = "Emoji sheet (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun EmojiSheetPreview() {
+    PreviewHost {
+        EmojiSheetContent(onEmoji = {})
+    }
+}
+
+@Preview(name = "Pinned banner (light)", showBackground = true, widthDp = 400)
+@Preview(name = "Pinned banner (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun PinnedBannerPreview() {
+    val items = listOf(
+        PinnedBannerData("p1", "The new palette landed - it looks so calm."),
+        PinnedBannerData("p2", "Morning! Are you free to review the bubble radii?"),
+        PinnedBannerData("p3", "Mockup v3 is up in the shared drive."),
+    )
+    PreviewHost {
+        Column {
+            PinnedBanner(items = items.take(2), displayIndex = 0)
+            Spacer(Modifier.height(PulseSpacing.xs))
+            PinnedBanner(items = items.take(2), displayIndex = 1)
+            Spacer(Modifier.height(PulseSpacing.xs))
+            PinnedBanner(items = items.take(1), displayIndex = 0)
+        }
+    }
+}
+
+@Preview(name = "Multi-select top bar (light)", showBackground = true, widthDp = 400)
+@Preview(name = "Multi-select top bar (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400)
+@Composable
+private fun MultiSelectTopBarPreview() {
+    PreviewHost {
+        Column {
+            MultiSelectTopBar(count = 3, canCopy = true)
+            Spacer(Modifier.height(PulseSpacing.xs))
+            MultiSelectTopBar(count = 2, canCopy = false)
+        }
+    }
+}
+
+@Preview(name = "Forward sheet (light)", showBackground = true, widthDp = 400, heightDp = 820)
+@Preview(name = "Forward sheet (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400, heightDp = 820)
+@Composable
+private fun ForwardSheetPreview() {
+    PulseTheme {
+        Surface(
+            color = PulseTheme.colors.background,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(800.dp),
+        ) {
+            ForwardSheet(
+                chats = listOf(
+                    m4bSummary("c-noah", "Noah Khan", 2, "Send the debug apk when it is ready."),
+                    m4bSummary("c-design", "Design Guild", 1, "Aria: new tokens pushed", group = true),
+                    m4bSummary("c-kabir", "Kabir Rao", 6, "Catch you at the evening run?", unread = 4, muted = true),
+                    m4bSummary("c-mira", "Mira Patel", 3, "Lunch tomorrow works."),
+                    m4bSummary("c-roadtrip", "Roadtrip Crew", 4, "Dev: route finalised for Goa", group = true),
+                ),
+                messages = listOf(
+                    text("fw1", "u-aria", 6, "Check the dark theme contrast on the dividers once."),
+                    bubble(
+                        "fw2",
+                        "u-aria",
+                        5,
+                        MessageContent.Image(
+                            listOf("sample://aria/mockup.png"),
+                            caption = "Mockup v3",
+                            widthPx = 1200,
+                            heightPx = 800,
+                        ),
+                    ),
+                ),
+            )
+        }
+    }
+}
+
+@Preview(name = "Conversation · selection mode (light)", showBackground = true, widthDp = 400, heightDp = 800)
+@Preview(name = "Conversation · selection mode (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400, heightDp = 800)
+@Composable
+private fun ConversationSelectionPreview() {
+    val chat = Chat(
+        id = "c-sel",
+        kind = ChatKind.Direct,
+        participantIds = listOf("me", "u-aria"),
+        members = listOf(
+            GroupMember("me", ChatRole.Owner),
+            GroupMember("u-aria", ChatRole.Member),
+        ),
+        avatarSeed = 1,
+    )
+    val messages = listOf(
+        text("s1", "u-aria", 5, "The new avatar palette landed - it looks so calm."),
+        text("s2", "me", 4, "Right? I love the sage tone."),
+        text("s3", "u-aria", 3, "Check the dark theme contrast on the dividers once."),
+        text("s4", "me", 2, "Will do after the build."),
+        text("s5", "u-aria", 1, "Mockup v3 is up."),
+    )
+    val rows = buildConversationRows(messages, previewUsers, unreadMarker = 0)
+    val state = ConversationUiState(
+        loading = false,
+        chat = chat,
+        rows = rows,
+        users = previewUsers,
+        selectionMode = true,
+        selectedMessageIds = setOf("s2", "s5"),
+    )
+    ConversationContent(state = state)
+}
+
+@Preview(name = "Conversation · read-only group (light)", showBackground = true, widthDp = 400, heightDp = 800)
+@Preview(name = "Conversation · read-only group (dark)", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true, widthDp = 400, heightDp = 800)
+@Composable
+private fun ConversationReadOnlyGroupPreview() {
+    val chat = Chat(
+        id = "c-ro",
+        kind = ChatKind.Group,
+        participantIds = listOf("me", "u-aria", "u-mira", "u-noah"),
+        members = listOf(
+            GroupMember("me", ChatRole.Member),
+            GroupMember("u-aria", ChatRole.Admin),
+            GroupMember("u-mira", ChatRole.Member),
+            GroupMember("u-noah", ChatRole.Member),
+        ),
+        title = "Morning Runners",
+        avatarSeed = 2,
+        pinnedMessageIds = listOf("ro2"),
+        permissions = ChatPermissions(sendMessages = false),
+    )
+    val messages = listOf(
+        text("ro1", "u-aria", 30, "7am start at the lake tomorrow."),
+        text("ro2", "u-mira", 25, "Shoes ready - route is 5k."),
+        text("ro3", "u-noah", 10, "Count me in for the late train too."),
+    )
+    val rows = buildConversationRows(messages, previewUsers, unreadMarker = 0)
+    val state = ConversationUiState(
+        loading = false,
+        chat = chat,
+        rows = rows,
+        users = previewUsers,
+        composer = ComposerUiState.ReadOnly,
+        selectableChats = emptyList(),
+    )
+    ConversationContent(state = state)
 }
