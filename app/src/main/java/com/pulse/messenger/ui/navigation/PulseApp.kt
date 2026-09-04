@@ -18,6 +18,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,6 +29,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.pulse.messenger.domain.model.ProfileStage
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.pulse.messenger.ui.screens.auth.AuthEvent
 import com.pulse.messenger.ui.screens.auth.AuthViewModel
 import com.pulse.messenger.ui.screens.forgot.ForgotEmailScreen
@@ -37,13 +40,21 @@ import com.pulse.messenger.ui.screens.friends.FindFriendsScreen
 import com.pulse.messenger.ui.screens.login.LoginEmailScreen
 import com.pulse.messenger.ui.screens.login.LoginPasswordScreen
 import com.pulse.messenger.ui.screens.login.LoginPhoneScreen
+import com.pulse.messenger.ui.screens.main.ConversationStubScreen
 import com.pulse.messenger.ui.screens.main.MainScreen
+import com.pulse.messenger.ui.screens.main.NewChatStubScreen
+import com.pulse.messenger.ui.screens.archived.ArchivedScreen
+import com.pulse.messenger.ui.screens.archived.ArchivedViewModel
+import com.pulse.messenger.ui.screens.folders.FoldersScreen
+import com.pulse.messenger.ui.screens.folders.FoldersViewModel
 import com.pulse.messenger.ui.screens.otp.OtpScreen
 import com.pulse.messenger.ui.screens.permissions.PermissionsScreen
 import com.pulse.messenger.ui.screens.profile.ProfileBioScreen
 import com.pulse.messenger.ui.screens.profile.ProfileNameScreen
 import com.pulse.messenger.ui.screens.profile.ProfilePhotoScreen
 import com.pulse.messenger.ui.screens.profile.ProfileUsernameScreen
+import com.pulse.messenger.ui.screens.search.GlobalSearchScreen
+import com.pulse.messenger.ui.screens.search.SearchViewModel
 import com.pulse.messenger.ui.screens.signup.SignupEmailScreen
 import com.pulse.messenger.ui.screens.splash.SplashScreen
 import com.pulse.messenger.ui.screens.splash.SplashViewModel
@@ -52,6 +63,7 @@ import com.pulse.messenger.ui.screens.success.ResetSuccessScreen
 import com.pulse.messenger.ui.screens.welcome.WelcomeScreen
 import com.pulse.messenger.ui.theme.PulseTheme
 import com.pulse.messenger.ui.theme.PulseColors
+import kotlinx.coroutines.launch
 
 /**
  * App navigation graph + the auth event router.
@@ -65,6 +77,7 @@ import com.pulse.messenger.ui.theme.PulseColors
 fun PulseApp(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val density = androidx.compose.ui.platform.LocalDensity.current
     val slidePx = with(density) { 24.dp.roundToPx() }
     val motionSpec = tween<androidx.compose.ui.unit.IntOffset>(
@@ -265,7 +278,58 @@ fun PulseApp(modifier: Modifier = Modifier) {
 
             /* ---------- S18 ---------- */
             composable(PulseRoutes.MAIN) {
-                MainScreen()
+                MainScreen(
+                    onOpenChat = { chatId -> navController.navigate(PulseRoutes.chatRoute(chatId)) },
+                    onOpenSearch = { navController.navigate(PulseRoutes.SEARCH) },
+                    onOpenArchived = { navController.navigate(PulseRoutes.ARCHIVED) },
+                    onOpenFolders = { navController.navigate(PulseRoutes.FOLDERS) },
+                    onNewChat = { navController.navigate(PulseRoutes.NEW_CHAT) },
+                    onShowMessage = { message ->
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = message,
+                                duration = SnackbarDuration.Short,
+                            )
+                        }
+                    },
+                )
+            }
+
+            /* ---------- S19 destinations ---------- */
+            composable(PulseRoutes.SEARCH) {
+                val viewModel: SearchViewModel = hiltViewModel()
+                GlobalSearchScreen(
+                    vm = viewModel,
+                    onOpenChat = { chatId -> navController.navigate(PulseRoutes.chatRoute(chatId)) },
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(PulseRoutes.ARCHIVED) {
+                val viewModel: ArchivedViewModel = hiltViewModel()
+                ArchivedScreen(
+                    vm = viewModel,
+                    onOpenChat = { chatId -> navController.navigate(PulseRoutes.chatRoute(chatId)) },
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(PulseRoutes.FOLDERS) {
+                val viewModel: FoldersViewModel = hiltViewModel()
+                FoldersScreen(
+                    vm = viewModel,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(PulseRoutes.NEW_CHAT) {
+                NewChatStubScreen(onBack = { navController.popBackStack() })
+            }
+            composable(
+                route = PulseRoutes.CHAT,
+                arguments = listOf(navArgument("chatId") { type = NavType.StringType }),
+            ) { entry ->
+                ConversationStubScreen(
+                    chatId = entry.arguments?.getString("chatId").orEmpty(),
+                    onBack = { navController.popBackStack() },
+                )
             }
         }
 

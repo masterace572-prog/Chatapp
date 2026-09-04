@@ -49,9 +49,21 @@ object PulseRoutes {
     const val PERMISSIONS = "permissions"
     const val FIND_FRIENDS = "find-friends"
 
-    /* ---------- Planned (register with their milestone) ---------- */
+    /* ---------- M3: pushed destinations above the main shell ---------- */
 
-    /** M4 - Conversation root with the chat id argument. */
+    /** S20 - global search. */
+    const val SEARCH = "search"
+
+    /** S21 - archived chats. */
+    const val ARCHIVED = "archived"
+
+    /** S22 - chat folders editor. */
+    const val FOLDERS = "folders"
+
+    /** S19 - new-chat stub (real flow lands in M4). */
+    const val NEW_CHAT = "new-chat"
+
+    /* ---------- M4 - Conversation root with the chat id argument. ---------- */
     const val CHAT = "chat/{chatId}"
     fun chatRoute(chatId: String) = "chat/$chatId"
 }
