@@ -93,7 +93,7 @@ width 78% of the row (code-level constraint), structural metrics like country-fl
 | Component (file) | Purpose | Key params |
 |---|---|---|
 | `AppTopBar` + `AppBackButton` (AppTopBar.kt) | Large/Medium/Compact top bar, hairline option | title, style, navigationIcon, actions |
-| `ChatHeader` (ChatHeader.kt) | S23 conversation top bar: back + unread overlay badge, 40dp avatar, name/status line, voice/video/more, dropdown menu | title, statusText, status(Online/Typing/Group/Neutral), avatarSeed, otherUnread, onMenuAction |
+| `ChatHeader` (ChatHeader.kt) | S23 conversation top bar: back + unread overlay badge, 40dp avatar, name/status line, voice/video/more, dropdown menu (Block/Unblock label swaps on the `blocked` flag) | title, statusText, status(Online/Typing/Group/Neutral), avatarSeed, otherUnread, blocked, onMenuAction |
 | `AppButton`, `AppIconButton` (AppButton.kt) | 52dp CTA (Primary/Secondary/Tertiary/Destructive, loading, disabled); 48dp icon button | text/icon, variant, loading, enabled, fillMaxWidth |
 | `AppTextField` (AppTextField.kt) | Themed input: label, placeholder, error, leading/trailing icons, password toggle | value, onValueChange, label, isError, isPassword |
 | `OtpInput` (OtpInput.kt) | 6-box code entry, auto-advance | onComplete, length, isError, resetSignal |
@@ -101,9 +101,14 @@ width 78% of the row (code-level constraint), structural metrics like country-fl
 | `Avatar` (+ group composite) (Avatar.kt) | Initials/photo circle 24–120dp, online dot, group stack | name, avatarTone, size, isOnline, isGroup |
 | `ChatListItem` + `SelectionCheck`, `DeliveryTicks` (ChatListItem.kt) | S19/S21 row incl. all badges/ticks; ticks now cover Sending(clock)/Failed(alert) | summary, onClick, onLongClick, selectionMode, selected |
 | `SwipeableRow` (SwipeableRow.kt) | Swipe actions container (snap-back) | startAction, endAction, enabled, content |
-| `MessageBubble` (MessageBubble.kt) | S23 bubble: text + tappable links, placeholders for media types, edited/deleted/failed/retry, run geometry, group names + run avatar | message, isFirstInRun/isLastInRun, senderName, senderNameColor, avatarSeed, onRetry |
+| `MessageBubble` (MessageBubble.kt) | S23 bubble (M4a core + M4b interactions): text + tappable links, reply-quote bar (tap scrolls to target), forwarded label, edited/star/status meta, deleted placeholder, failed+retry, run geometry, group names + run avatar, flash highlight after pin/quote jumps, reaction pill row under the bubble | message, run flags, senderName/Color, avatarSeed, onRetry, quote(BubbleQuoteData?)+onQuoteTap, flashSignal, onLongPress/onTap, onToggleReaction/onReactionLongPress, voicePlaying/onVoiceToggle |
+| `VoiceMessageBubble` (VoiceMessageBubble.kt) | Voice-note bubble content: play/pause + simulated playback (timer + progress-tinted waveform bars), duration + 1×/1.5×/2× speed chip | `VoiceNoteContent`(isOutgoing, duration, samples, playing, onToggle); `VoiceMessageBubble`(message…) |
+| `MessageActions` (MessageActions.kt) | Long-press surfaces: `LongPressScrim`, `QuickReactionBar` (6 quick emoji + "+"), `MessageActionSheet` (icon rows), `EmojiSheetContent` (24-emoji grid) | onReact/onMore; items: List<MessageActionItem(icon,labelRes,destructive)>; onEmoji |
+| `MessageReactions` (MessageReactions.kt) | Reaction pills (`ReactionPillRow`, own-reaction accent border/bg) + `ReactorsSheetContent` (avatar+name list); `ReactionEmoji` sets; `reactionPills(message)` builder | pills, isOutgoing, onToggle, onLongPress; emoji, reactors: List<ReactorUi> |
+| `ConversationBars` (ConversationBars.kt) | `PinnedBanner` (segment indicator, close-to-unpin, tap cycles/jumps) + `MultiSelectTopBar` (N selected + copy/star/forward/delete) | items+PinnedBannerData, displayIndex, onTap/onClose; count, canCopy, batch callbacks |
 | `DateSeparator`, `UnreadDivider`, `SystemMessageRow`, `TypingIndicator` (ChatExtras.kt) | Conversation list chrome (day pill / "N unread" pill / centered system row / 3-dot pulse bubble) | label; senderName for typing |
-| `MessageComposer` (MessageComposer.kt) | Basic S23 composer: attachment + growing pill field (6 lines) + camera/mic when empty, crossfade to send circle | value, onValueChange, onSend, onAttachment/onCamera/onMic |
+| `ForwardSheet` (ForwardSheet.kt) | Forward chooser: forwarded-message preview bar (+N), comment field, search + Recent avatar row, selected-target chips, ChatListItem list, Send (N) pill | chats: List<ChatSummary>, messages, onSend(targetIds, comment) |
+| `MessageComposer` (MessageComposer.kt) | M4b full composer: `ComposerUiState` Idle/Typing/Reply/Edit/Recording/LockedRecording/Blocked/ReadOnly; reply & edit bars (3dp accent, close), growing 6-line field, hold-to-record with slide-to-cancel + lock (haptics, too-short guard), locked row (pause/resume, trash, send), group @mention popup + accent chip coloring, blocked (Unblock) / read-only status rows | state, value, onValueChange, mentionMembers, onSend/onAttachment/onCamera/onMicPress, onRecordCancel/Lock/Finish(ms,samples)/TooShort, onCloseBar, onMentionSelected, onUnblock |
 | `AppChip`, `Badge`, `Tag` (Badges.kt) | Filter chip w/ leading icon; count pill; neutral micro-label | label, selected; count, muted |
 | `SearchBar` (SearchBar.kt) | Collapsed pill → expanded field with back | value, active, onActiveChange, placeholder |
 | `AppBottomSheet`, `CountryPickerSheet` (AppBottomSheet.kt) | Modal sheet, drag handle; searchable ISO picker | onDismissRequest, sheetState |
@@ -116,10 +121,13 @@ width 78% of the row (code-level constraint), structural metrics like country-fl
 
 **Previews:** every component has light+dark `@Preview` pairs. Hubs:
 `ComponentsPreviews.kt` (M1), `screens/chats/ChatRowsPreviews.kt` (M3 rows),
-`ComponentShowcases.kt` (audit gap-fill), **`ConversationPreviews.kt` (M4a: ChatHeader
-online/typing/group, MessageBubble outgoing run/incoming run + system row/placeholders,
-DateSeparator, UnreadDivider, TypingIndicator, Composer empty/typing/multiline, full
-`ConversationContent` with seeded history)**. Not previewed: `CountryPickerSheet`,
+`ComponentShowcases.kt` (audit gap-fill), **`ConversationPreviews.kt` (M4a + M4b):**
+ChatHeader online/typing/group, MessageBubble outgoing run / incoming run + system row +
+placeholders + reactions/star/edited/failed states, DateSeparator/UnreadDivider/TypingIndicator,
+Composer empty/typing/multiline/**reply & edit bars/recording & locked/blocked & read-only**,
+QuickReactionBar, MessageActionSheet, ReactionPillRow + ReactorsSheetContent, EmojiSheetContent,
+PinnedBanner, MultiSelectTopBar, ForwardSheet, full `ConversationContent` (seeded history,
+selection mode, read-only group). Not previewed: `CountryPickerSheet`,
 `AuthStepScaffold` (interactive modals/IME scaffolding).
 
 ## 4. Navigation route table
@@ -134,7 +142,7 @@ DateSeparator, UnreadDivider, TypingIndicator, Composer empty/typing/multiline, 
 | `search` | S20 | ✅ |
 | `archived` | S21 | ✅ |
 | `folders` | S22 | ✅ |
-| **`chat/{chatId}`** | **S23 conversation core (M4a)** | ✅ REAL — stub replaced |
+| **`chat/{chatId}`** | **S23 conversation — M4a core + M4b messaging interactions** | ✅ REAL — stub replaced |
 | `new-chat` | New chat | ⏳ stub (M4c/M4d flow) |
 
 **Back behavior:** inside `Main`, back on a non-Chats tab → Chats; multi-select active → clears
@@ -154,9 +162,11 @@ ViewModel release marks the chat closed (mock stops counting unread for it).
 | `ChatFolder` | id, name, includeKinds, onlyUnread (unchanged) |
 | `SessionState`, `GoogleAccount`, `SignInResult`, `CountryCode`, `OtpChannel` | auth support models (unchanged) |
 
-Remaining S23+ gaps deferred to M4b–M4e are rendering/behavioral only (reactions UI, reply
-quotes, media bubbles, pinned banner, group management, message info); the **model supports all
-of them already** — no further model migration is planned before Phase 2.
+M4b shipped **on the unchanged M4a model** (messaging interactions + UI only — no migration).
+Still deferred to M4c–M4e: attachment sheet/media picker/camera, real media bubbles
+(Image/Video/File/Location/Contact/Poll/Sticker keep labelled placeholders), group admin UI
+(S28–S30), message info / shared media / in-chat search / wallpaper / disappearing messages /
+polls (S31–S40).
 
 ## 6. Repository interfaces & mocks
 
@@ -175,7 +185,10 @@ of them already** — no further model migration is planned before Phase 2.
 (`observeChat(chatId)`, `observeMessages(chatId)` newest-last hot, `observeTyping(chatId):
 Flow<Set<String>>`, `sendText(chatId, text, replyToMessageId?)`, `retryMessage(messageId)`,
 `markChatRead(chatId)`, `setActiveConversation(chatId?)`, `setDraft(chatId, text)`), M3 actions
-(archive/pin/mute/markRead/markAllRead/deleteChats/refresh). All bound via `@Binds` in
+(archive/pin/mute/markRead/markAllRead/deleteChats/refresh), **M4b message actions**
+(`editMessage`, `deleteMessage(messageId, forEveryone)`, `toggleReaction`, `setStarred`,
+`pinMessage`/`unpinMessage` (cap 5), `forwardMessages(ids, targets, comment?)`, `sendVoice`,
+`setBlocked`, `observeMentionCandidates(chatId)`). All bound via `@Binds` in
 `di/RepositoryModule.kt`.
 
 **Mock behaviors (PRD §9 + M4a D-decisions):**
@@ -192,6 +205,13 @@ Flow<Set<String>>`, `sendText(chatId, text, replyToMessageId?)`, `retryMessage(m
 - Drafts: mutable per chat; the chat list shows the "Draft:" prefix (M3), unsent composer text
   survives leaving/re-entering a conversation (S23).
 - Idle typing pulses on `c-aria` (M3) keep lists + conversation alive (D4).
+- M4b mock semantics: edit replaces text + sets `isEdited`; delete-for-everyone marks `isDeleted`
+  (reactions/star cleared, pin removed) while delete-for-me drops the row from this user's
+  history; reaction toggle merges "me" into `MessageReaction.userIds` (empty pill removed);
+  forwards copy content with `forwardedFromUserId` kept for peer messages (own = no label) and
+  append a non-blank comment as a follow-up text; voice sends ride the same Sending→…→Read
+  pipeline (~5% fail, retryable); blocked chats skip the auto-reply/pipeline; mention
+  candidates = group members minus "me".
 - Session: persisted via DataStore `pulse_session` (splash routes LoggedIn → Main after restart).
 
 ## 7. Seed data (`data/mock/SeedData.kt`, M4a)
@@ -199,18 +219,23 @@ Flow<Set<String>>`, `sendText(chatId, text, replyToMessageId?)`, `retryMessage(m
 - **People:** 17 contacts (`u-aria`…`u-tara` + **`u-pulse` "Pulse Assistant"**, verified, always
   online) + `me` (Aarav Kapoor). Presence: `u-aria` and `u-pulse` online; everyone else carries a
   `lastSeenAtMillis`.
-- **Chats:** 16 (12 direct + 4 groups: Design Guild me-owner; Roadtrip Crew dev-owned; Weekend
-  Plans me-owner; Morning Runners iva-owned) with roles (`members`), descriptions, createdAt.
-  Flags: archived `c-zara`/`c-tara`, muted `c-kabir`/`c-lea`/`c-roadtrip`, pinned `c-noah`/
-  `c-iva`; unread: aria 3 / design 2 / roadtrip 5 / sam 1 / run 2 / kabir 4; draft on `c-noah`;
-  typing sim on `c-aria`.
-- **Messages: ~441 generated per chat (20–45 each)** spanning ≥2 days (night gaps) so date
-  separators show Today / Yesterday / weekday / full date. Deterministic per chat (fixed seed):
-  grouped sender runs (2 min window), system rows ("You created the group", "X joined" with real
-  actor ids), links, edited + deleted examples, reactions data, and content-type placeholders
-  (image/video/voice/file/location/contact/poll/sticker) with realistic payload fields. Unread
-  tails are peer-sent by construction; recent chats end minutes before launch, archived chats
-  end days ago.
+- **Chats:** 16 (12 direct + 4 groups) with roles (`members`), descriptions, createdAt. Flags:
+  archived `c-zara`/`c-tara`, muted `c-kabir`/`c-lea`/`c-roadtrip`, list-pinned `c-noah`/
+  `c-iva`, **in-chat pins** (`pinnedMessageIds`) on `c-aria` ×2 + `c-design`/`c-roadtrip`/
+  `c-fam`/`c-run` ×1, **blocked demo toggled in-app** (header menu / composer). Unread: aria 3 /
+  design 2 / roadtrip 5 / sam 1 / run 2 / kabir 4; draft on `c-noah`; typing sim on `c-aria`.
+- **Messages: ~441 generated per chat (20–45 each)**; five chats (`c-noah`, `c-mira`, `c-fam`,
+  `c-rohan`, `c-lea`) reach back **7–12 days** (multi-day pauses) so weekday + full-date
+  separators render while recent chats keep Today/Yesterday. Deterministic per chat (fixed
+  seed): grouped sender runs (2 min window), system rows, links, **M4b interaction seeds** —
+  reply-to-text and reply-to-non-text chains, starred messages, voice notes with waveform
+  samples + reactions, multi-user reaction sets (`u-aria`/`u-sam`/…) — plus edited/deleted
+  examples and content-type placeholders (image/video/file/location/contact/poll/sticker).
+  Unread tails are peer-sent by construction; archived chats end days ago.
+- **Pins (M4b):** every group chat carries ≥1 pinned message; `c-aria` carries two so the
+  pinned banner cycles. **Read-only demo:** Morning Runners (`c-run`) sets
+  `permissions.sendMessages = false` with "me" as Member → the composer renders its read-only
+  state there.
 - M3 list/search consumers read the same store: preview text derives from `content.text` with
   `MessageLabels.typeLabel` icons for non-text, search indexes Text content (system rows and
   empty payloads excluded), delivery ticks/labels unchanged.
@@ -234,16 +259,17 @@ Flow<Set<String>>`, `sendText(chatId, text, replyToMessageId?)`, `retryMessage(m
 | M2 | Onboarding & auth S01–S17 | ✅ | |
 | M3 | Main shell & chats S18–S22 | ✅ | |
 | Pre-M4 audit | Consolidation + docs + readiness | ✅ | commits `895241f`, `e8abc9c` |
-| **M4a** | **Conversation core: domain model v2, message repo + mock behaviors + seed history, S23 chat screen (header/list/bubbles/composer basic)** | ✅ | this update |
-| M4b–M4e | Composer full states, reactions/replies, media bubbles, groups info, personalization | ⏳ | plan in `docs/M4_READINESS.md` |
+| **M4a** | **Conversation core: domain model v2, message repo + mock behaviors + seed history, S23 chat screen (header/list/bubbles/composer basic)** | ✅ | |
+| **M4b** | **Conversation messaging: full composer states (reply/edit/voice/blocked/read-only, mentions), long-press action sheet + quick reactions + reactors sheet, reaction rows, multi-select batch actions, reply send + quote bars, forward sheet with comment, delete-for-me/everyone, voice notes (send + simulated playback), pinned banner with cycling/jump, flash/jump targets** | ✅ | this update |
+| M4c–M4e | Attachment sheet/media pickers/camera, real media bubbles, groups & info screens, in-chat search, personalization | ⏳ | plan in `docs/M4_READINESS.md` |
 | M5–M7 | Calls, People, Settings, Misc screens | ⏳ | |
 
-**Known limitations (accepted):** M4a renders media/voice/location/contact/poll/sticker content
-as labelled placeholder bubbles (M4b/M4c replace); long-press actions/reactions/reply/multi-
-select/pinned banner are M4b; group role management UI is M4d; in-chat search/forward/etc are
-later; mock state resets between launches; time labels & preview strings are English-only;
-Calls/People/Settings tabs remain placeholders; composer Enter = newline (Enter-sends is an M6
-setting).
+**Known limitations (accepted):** voice notes render with simulated playback (real audio is
+M4c); Image/Video/File/Location/Contact/Poll/Sticker content stays on labelled placeholder
+bubbles until M4c; attachment sheet/camera/media picker are M4c; message info, group admin UI,
+in-chat search, wallpaper/disappearing/polls are M4d–M4e; mock state resets between launches;
+time labels & preview strings are English-only; Calls/People/Settings tabs remain placeholders;
+composer Enter = newline (Enter-sends is an M6 setting).
 
 ## 10. How to add a new screen (checklist)
 
